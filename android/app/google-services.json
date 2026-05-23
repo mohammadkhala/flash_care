@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "502524627923",
+    "project_id": "doctor-flutter-b8ff2",
+    "storage_bucket": "doctor-flutter-b8ff2.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502524627923:android:219901f95d70874814fd26",
+        "android_client_info": {
+          "package_name": "com.retrytech.doctor_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "502524627923-1v3s195hvtbu2vul65alsp8hqhfb6erf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.doctor_flutter",
+            "certificate_hash": "97c66063c42817740498d1c74e068c146bf0a0ce"
+          }
+        },
+        {
+          "client_id": "502524627923-e5i45toiqaa7jf2k87s88apsmlnu6urk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDi0IPyBdB-I90DOh7ZOL9sVts7bbt9Zpo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "502524627923-e5i45toiqaa7jf2k87s88apsmlnu6urk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "502524627923-ehedh8tl2bqs5omk2chgpc3ckka9rsjn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.retrytech.doctorFlutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502524627923:android:df37f6e86cbc7e9b14fd26",
+        "android_client_info": {
+          "package_name": "com.retrytech.patient_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "502524627923-e5i45toiqaa7jf2k87s88apsmlnu6urk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDi0IPyBdB-I90DOh7ZOL9sVts7bbt9Zpo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "502524627923-e5i45toiqaa7jf2k87s88apsmlnu6urk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "502524627923-ehedh8tl2bqs5omk2chgpc3ckka9rsjn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.retrytech.doctorFlutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
