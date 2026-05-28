@@ -1,0 +1,44 @@
+# Laravel backend & admin
+nabdh_backend/vendor/
+nabdh_backend/.env
+nabdh_backend/storage/app/public/
+nabdh_backend/storage/framework/cache/
+nabdh_backend/storage/framework/sessions/
+nabdh_backend/storage/framework/views/
+nabdh_backend/bootstrap/cache/
+nabdh_backend/storage/app/firebase-credentials.json.json
+nabdh_backend/storage/app/firebase-credentials.json
+
+nabdh_admin/vendor/
+nabdh_admin/.env
+nabdh_admin/storage/app/public/
+nabdh_admin/storage/framework/cache/
+nabdh_admin/storage/framework/sessions/
+nabdh_admin/storage/framework/views/
+nabdh_admin/bootstrap/cache/
+
+# Flutter
+nabdh_patient/build/
+nabdh_patient/.dart_tool/
+nabdh_patient/.flutter-plugins
+nabdh_patient/.flutter-plugins-dependencies
+nabdh_patient/android/.gradle/
+nabdh_patient/android/app/.cxx/
+nabdh_patient/android/key.properties
+nabdh_patient/.idea/
+nabdh_patient/*.iml
+
+nabdh_therapist/build/
+nabdh_therapist/.dart_tool/
+nabdh_therapist/.flutter-plugins
+nabdh_therapist/.flutter-plugins-dependencies
+nabdh_therapist/android/.gradle/
+nabdh_therapist/android/app/.cxx/
+nabdh_therapist/android/key.properties
+nabdh_therapist/.idea/
+nabdh_therapist/*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

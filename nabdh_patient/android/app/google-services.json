@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "479826608900",
+    "project_id": "nabd-3e72e",
+    "storage_bucket": "nabd-3e72e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479826608900:android:da3837bbecb73b48b24651",
+        "android_client_info": {
+          "package_name": "com.nabdh.nabdh_patient"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvrrD2fb3zTrdM-joeVbg4U5QOREJgj7U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
