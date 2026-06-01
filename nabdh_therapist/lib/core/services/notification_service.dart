@@ -36,6 +36,9 @@ class NotificationService {
     }
   }
 
+  /// Called by FcmService when a background-FCM notification is tapped.
+  void handleDeepLink(String payload) => _handlePayload(payload);
+
   // ── Init ──────────────────────────────────────────────────────────────────
 
   Future<void> init() async {
@@ -51,10 +54,8 @@ class NotificationService {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-    // Request POST_NOTIFICATIONS permission on Android 13+
     await androidPlugin?.requestNotificationsPermission();
 
-    // Create high-importance channel
     const channel = AndroidNotificationChannel(
       'nabdh_therapist_channel', 'إشعارات نبض',
       description: 'إشعارات تطبيق نبض للأخصائي',
@@ -62,7 +63,6 @@ class NotificationService {
     );
     await androidPlugin?.createNotificationChannel(channel);
 
-    // Check if app was LAUNCHED by tapping a notification
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
@@ -79,20 +79,48 @@ class NotificationService {
   }
 
   void _handlePayload(String? payload) {
-    if (payload == null) return;
-    if (payload.startsWith('appointment:')) {
-      final id    = payload.substring('appointment:'.length);
-      final route = '/appointments/$id';
-      if (_navigate != null) {
-        Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
-      } else {
-        _pendingPayload = payload;
-      }
-    } else if (payload.startsWith('messages/')) {
-      if (_navigate != null) {
-        Future.delayed(const Duration(milliseconds: 400), () => _navigate!('/$payload'));
-      }
+    if (payload == null || payload.isEmpty) return;
+    final route = _payloadToRoute(payload);
+    if (_navigate != null) {
+      Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
+    } else {
+      _pendingPayload = payload;
     }
+  }
+
+  String _payloadToRoute(String payload) {
+    if (payload.startsWith('appointment:')) {
+      return '/appointments/${payload.substring('appointment:'.length)}';
+    }
+    if (payload.startsWith('message:')) {
+      return '/messages/${payload.substring('message:'.length)}';
+    }
+    if (payload.startsWith('goal:')) {
+      return '/goals/${payload.substring('goal:'.length)}';
+    }
+    if (payload.startsWith('program:')) {
+      return '/programs/${payload.substring('program:'.length)}';
+    }
+    if (payload == 'reels') return '/reels';
+    // Default: open notifications list
+    return '/notifications';
+  }
+
+  // ── Build payload from notification data map (shared with FcmService) ─────
+
+  static String? buildPayloadFromData(Map<String, dynamic> data) {
+    final aptId  = data['appointment_id'];
+    if (aptId != null) return 'appointment:$aptId';
+    final convId = data['conversation_id'];
+    if (convId != null) return 'message:$convId';
+    final goalId = data['goal_id'];
+    if (goalId != null) return 'goal:$goalId';
+    final progId = data['program_id'];
+    if (progId != null) return 'program:$progId';
+    final type = data['type'] as String? ?? '';
+    if (type == 'account_approved') return 'notifications';
+    if (type == 'reel_approved' || type == 'new_reel') return 'reels';
+    return null;
   }
 
   // ── Polling ───────────────────────────────────────────────────────────────
@@ -107,13 +135,11 @@ class NotificationService {
       final token = await ApiClient.getToken();
       if (token == null) return;
 
-      // 1. Fast unread-count check
       final countRes = await ApiClient.instance.get('/notifications/unread-count');
       final count = jsonInt(countRes.data['count']);
       final prev  = _unreadCount.value;
       _unreadCount.value = count;
 
-      // 2. Only fetch & display when count rose
       if (count > prev) {
         final listRes = await ApiClient.instance.get(
           '/notifications', queryParameters: {'per_page': 10});
@@ -122,15 +148,14 @@ class NotificationService {
 
         for (final item in list) {
           final n = item as Map<String, dynamic>;
-          if (n['read_at'] != null) continue; // already read
+          if (n['read_at'] != null) continue;
 
           final dataField = n['data'];
           final dataMap   = dataField is Map
               ? dataField.cast<String, dynamic>()
               : <String, dynamic>{};
 
-          final aptId   = dataMap['appointment_id'];
-          final payload = aptId != null ? 'appointment:$aptId' : null;
+          final payload = buildPayloadFromData(dataMap);
 
           await _showNotification(
             id:      jsonInt(n['id']),
@@ -169,7 +194,7 @@ class NotificationService {
       id:      conversationId ?? 2,
       title:   'رسالة من $senderName',
       body:    message,
-      payload: conversationId != null ? 'messages/$conversationId' : null,
+      payload: conversationId != null ? 'message:$conversationId' : null,
     );
   }
 

@@ -7,8 +7,6 @@ import '../utils/json_utils.dart';
 // ─── Top-level background tap handler (must NOT be inside a class) ────────────
 @pragma('vm:entry-point')
 void onBackgroundNotificationTap(NotificationResponse response) {
-  // The app is already fully launched when this fires on Android 12+.
-  // Navigation is handled in NotificationService._handlePayload() on next init.
   NotificationService._storePendingPayload(response.payload);
 }
 
@@ -28,7 +26,6 @@ class NotificationService {
 
   ValueNotifier<int> get unreadCount => _unreadCount;
 
-  // Called from the top-level background handler (separate isolate on some devices)
   static void _storePendingPayload(String? payload) {
     _pendingPayload = payload;
   }
@@ -36,13 +33,15 @@ class NotificationService {
   /// Wire up navigation after GoRouter is ready.
   void setNavigator(void Function(String route) navigate) {
     _navigate = navigate;
-    // If a notification was tapped while the app was closed, navigate now.
     final pending = _pendingPayload;
     if (pending != null) {
       _pendingPayload = null;
       _handlePayload(pending);
     }
   }
+
+  /// Called by FcmService when a background-FCM notification is tapped.
+  void handleDeepLink(String payload) => _handlePayload(payload);
 
   // ── Init ─────────────────────────────────────────────────────────────────
 
@@ -59,10 +58,8 @@ class NotificationService {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-    // Request POST_NOTIFICATIONS permission on Android 13+
     await androidPlugin?.requestNotificationsPermission();
 
-    // Create high-importance channel
     const channel = AndroidNotificationChannel(
       'nabdh_patient_channel', 'إشعارات نبض',
       description: 'إشعارات تطبيق نبض للمريض',
@@ -70,14 +67,10 @@ class NotificationService {
     );
     await androidPlugin?.createNotificationChannel(channel);
 
-    // Check if the app was LAUNCHED by tapping a notification (app was closed)
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
-      if (payload != null) {
-        // Store for later — navigator isn't ready yet
-        _pendingPayload = payload;
-      }
+      if (payload != null) _pendingPayload = payload;
     }
 
     _startPolling();
@@ -90,18 +83,47 @@ class NotificationService {
   }
 
   void _handlePayload(String? payload) {
-    if (payload == null) return;
-    if (payload.startsWith('appointment:')) {
-      final id = payload.substring('appointment:'.length);
-      final route = '/appointments/$id';
-      if (_navigate != null) {
-        // Small delay so the widget tree is fully settled
-        Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
-      } else {
-        // Navigator not ready yet — store for setNavigator() to pick up
-        _pendingPayload = payload;
-      }
+    if (payload == null || payload.isEmpty) return;
+    final route = _payloadToRoute(payload);
+    if (_navigate != null) {
+      Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
+    } else {
+      _pendingPayload = payload;
     }
+  }
+
+  String _payloadToRoute(String payload) {
+    if (payload.startsWith('appointment:')) {
+      return '/appointments/${payload.substring('appointment:'.length)}';
+    }
+    if (payload.startsWith('message:')) {
+      return '/messages/${payload.substring('message:'.length)}';
+    }
+    if (payload.startsWith('goal:')) {
+      return '/goals/${payload.substring('goal:'.length)}';
+    }
+    if (payload.startsWith('program:')) {
+      return '/programs/${payload.substring('program:'.length)}';
+    }
+    if (payload == 'reels') return '/reels';
+    // Default: open notifications list
+    return '/notifications';
+  }
+
+  // ── Build payload from notification data map (shared with FcmService) ─────
+
+  static String? buildPayloadFromData(Map<String, dynamic> data) {
+    final aptId  = data['appointment_id'];
+    if (aptId != null) return 'appointment:$aptId';
+    final convId = data['conversation_id'];
+    if (convId != null) return 'message:$convId';
+    final goalId = data['goal_id'];
+    if (goalId != null) return 'goal:$goalId';
+    final progId = data['program_id'];
+    if (progId != null) return 'program:$progId';
+    final type = data['type'] as String? ?? '';
+    if (type == 'reel_approved' || type == 'new_reel') return 'reels';
+    return null; // let caller decide fallback
   }
 
   // ── Polling ───────────────────────────────────────────────────────────────
@@ -131,15 +153,14 @@ class NotificationService {
 
         for (final item in list) {
           final n = item as Map<String, dynamic>;
-          if (n['read_at'] != null) continue; // already read
+          if (n['read_at'] != null) continue;
 
           final dataField = n['data'];
           final dataMap   = dataField is Map
               ? dataField.cast<String, dynamic>()
               : <String, dynamic>{};
 
-          final aptId  = dataMap['appointment_id'];
-          final payload = aptId != null ? 'appointment:$aptId' : null;
+          final payload = buildPayloadFromData(dataMap);
 
           await _showNotification(
             id:      jsonInt(n['id']),

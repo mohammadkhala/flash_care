@@ -187,7 +187,7 @@ class _HomeShellState extends State<HomeShell> {
   int _selectedIndex = 0;
   int _unreadNotifications = 0;
 
-  final _tabs = ['/home', '/appointments', '/messages', '/programs', '/profile'];
+  final _tabs = ['/home', '/appointments', '/messages', '/reels', '/programs', '/profile'];
 
   @override
   void initState() {
@@ -231,6 +231,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: const Icon(Icons.chat_outlined),
             selectedIcon: const Icon(Icons.chat),
             label: 'الرسائل',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.play_circle_outline_rounded),
+            selectedIcon: Icon(Icons.play_circle_rounded),
+            label: 'الريلز',
           ),
           const NavigationDestination(
             icon: Icon(Icons.fitness_center_outlined),
