@@ -29,7 +29,11 @@ class TestOtp extends Command
             $this->info('✅ تم الإرسال بنجاح عبر WaSender');
             $this->line("OTP: {$user->fresh()->otp}");
         } else {
-            $this->error('❌ فشل الإرسال - راجع اللوج');
+            $this->error('❌ فشل الإرسال');
+            if ($err = $otpService->getLastError()) {
+                $this->line($err);
+            }
+            $this->line('أو راجع: tail -30 storage/logs/laravel.log | grep OTP');
         }
     }
 }

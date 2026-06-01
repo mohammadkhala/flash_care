@@ -17,6 +17,7 @@ return new class extends Migration
             $table->timestamp('otp_expires_at')->nullable();
             $table->enum('type', ['therapist', 'patient', 'admin'])->default('patient');
             $table->string('fcm_token')->nullable();
+            $table->string('password')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamp('phone_verified_at')->nullable();
             $table->rememberToken();
