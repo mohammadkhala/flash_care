@@ -463,7 +463,7 @@ class _StatsTab extends StatelessWidget {
         // Appointment breakdown
         if (totalApts > 0) ...[
           const SizedBox(height: 20),
-          const _SectionTitle(title: 'توزيع المواعيد', icon: Icons.pie_chart_outlined),
+          const _SectionTitle(title: 'توزيع المواعيد', icon: Icons.donut_large_rounded),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),

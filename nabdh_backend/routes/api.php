@@ -10,6 +10,7 @@ use App\Http\Controllers\Therapist\AppointmentController as TherapistAppointment
 use App\Http\Controllers\Therapist\HomeProgramController;
 use App\Http\Controllers\Therapist\ProfileController;
 use App\Http\Controllers\Therapist\ReelController;
+use App\Http\Controllers\Therapist\DocumentController as TherapistDocumentController;
 use App\Http\Controllers\Therapist\ScheduleController;
 use App\Http\Controllers\Patient\AppointmentController as PatientAppointmentController;
 use App\Http\Controllers\Patient\HomeProgramController as PatientHomeProgramController;
@@ -65,6 +66,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('profile/education', [ProfileController::class, 'addEducation']);
         Route::post('profile/certification', [ProfileController::class, 'addCertification']);
         Route::post('profile/language', [ProfileController::class, 'addLanguage']);
+
+        // Therapist documents (CV, license, certificates)
+        Route::get('documents',             [TherapistDocumentController::class, 'index']);
+        Route::post('documents',            [TherapistDocumentController::class, 'store']);
+        Route::delete('documents/{document}', [TherapistDocumentController::class, 'destroy']);
         Route::get('statistics', [ProfileController::class, 'statistics']);
 
         // Schedules & Clinics

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/l10n/s.dart';
 
 class ProgramsPage extends StatefulWidget {
   const ProgramsPage({super.key});
@@ -40,12 +41,12 @@ class _ProgramsPageState extends State<ProgramsPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
     appBar: AppBar(
-      title: const Text('برامجي'),
+      title: Text(S.myProgramsTitle),
       actions: [
         TextButton.icon(
           onPressed: () => context.push('/goals'),
           icon: const Icon(Icons.track_changes_rounded, size: 18),
-          label: const Text('أهدافي'),
+          label: Text(S.myGoals),
           style: TextButton.styleFrom(foregroundColor: AppColors.primary),
         ),
       ],

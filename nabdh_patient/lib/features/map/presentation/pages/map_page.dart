@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -14,51 +15,15 @@ class TherapistMapPage extends StatefulWidget {
 }
 
 class _TherapistMapPageState extends State<TherapistMapPage> {
-  GoogleMapController? _mapController;
+  final MapController _mapController = MapController();
   Position? _myPosition;
   List<Map<String, dynamic>> _therapists = [];
   Map<String, dynamic>? _selected;
   bool _loading = true;
   bool _locating = false;
 
-  Set<Marker> get _markers {
-    final Set<Marker> markers = {};
-
-    // My location marker
-    if (_myPosition != null) {
-      markers.add(Marker(
-        markerId: const MarkerId('me'),
-        position: LatLng(_myPosition!.latitude, _myPosition!.longitude),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: const InfoWindow(title: 'موقعي'),
-      ));
-    }
-
-    // Therapist markers
-    for (final t in _therapists) {
-      final lat = (t['latitude'] as num?)?.toDouble();
-      final lng = (t['longitude'] as num?)?.toDouble();
-      if (lat == null || lng == null) continue;
-
-      markers.add(Marker(
-        markerId: MarkerId('t_${t['id']}'),
-        position: LatLng(lat, lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          _selected?['id'] == t['id']
-              ? BitmapDescriptor.hueGreen
-              : BitmapDescriptor.hueRed,
-        ),
-        infoWindow: InfoWindow(
-          title: t['full_name'] as String? ?? '',
-          snippet: '⭐ ${t['rating_average']} • ${t['distance_km']} كم',
-          onTap: () => setState(() => _selected = t),
-        ),
-        onTap: () => setState(() => _selected = t),
-      ));
-    }
-
-    return markers;
-  }
+  // Default center: Palestine
+  static const LatLng _palestineCenter = LatLng(31.9, 35.2);
 
   @override
   void initState() {
@@ -80,27 +45,25 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
         setState(() { _locating = false; _loading = false; });
         return;
       }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+        if (perm == LocationPermission.denied) {
           _showSnack('لم يتم منح صلاحية الموقع');
           setState(() { _locating = false; _loading = false; });
           return;
         }
       }
-      if (permission == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.deniedForever) {
         _showSnack('صلاحية الموقع محظورة — افتح الإعدادات');
         setState(() { _locating = false; _loading = false; });
         return;
       }
-
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
       setState(() { _myPosition = pos; _locating = false; });
-    } catch (e) {
+    } catch (_) {
       _showSnack('تعذّر الحصول على الموقع');
       setState(() { _locating = false; _loading = false; });
     }
@@ -120,17 +83,15 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
         _loading = false;
       });
       _fitMap();
-    } catch (e) {
-      if (mounted) setState(() => _loading = false);
+    } catch (_) {
+      setState(() => _loading = false);
     }
   }
 
   void _fitMap() {
-    if (_therapists.isEmpty || _myPosition == null || _mapController == null) return;
-
+    if (_therapists.isEmpty || _myPosition == null) return;
     double minLat = _myPosition!.latitude, maxLat = _myPosition!.latitude;
     double minLng = _myPosition!.longitude, maxLng = _myPosition!.longitude;
-
     for (final t in _therapists) {
       final lat = (t['latitude'] as num?)?.toDouble();
       final lng = (t['longitude'] as num?)?.toDouble();
@@ -140,24 +101,22 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
       minLng = math.min(minLng, lng);
       maxLng = math.max(maxLng, lng);
     }
-
-    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(
-      LatLngBounds(
-        southwest: LatLng(minLat - 0.01, minLng - 0.01),
-        northeast: LatLng(maxLat + 0.01, maxLng + 0.01),
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds(
+          LatLng(minLat - 0.01, minLng - 0.01),
+          LatLng(maxLat + 0.01, maxLng + 0.01),
+        ),
+        padding: const EdgeInsets.all(60),
       ),
-      60,
-    ));
+    );
   }
 
   void _goToMe() {
     if (_myPosition == null) { _getLocation(); return; }
-    _mapController?.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-        target: LatLng(_myPosition!.latitude, _myPosition!.longitude),
-        zoom: 14,
-      ),
-    ));
+    _mapController.move(
+      LatLng(_myPosition!.latitude, _myPosition!.longitude), 14,
+    );
   }
 
   void _goToNearest() {
@@ -167,9 +126,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
     final lng = (nearest['longitude'] as num?)?.toDouble();
     if (lat == null || lng == null) return;
     setState(() => _selected = nearest);
-    _mapController?.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(target: LatLng(lat, lng), zoom: 15),
-    ));
+    _mapController.move(LatLng(lat, lng), 15);
   }
 
   void _showSnack(String msg) {
@@ -178,12 +135,59 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
         SnackBar(content: Text(msg), backgroundColor: AppColors.primary));
   }
 
+  LatLng get _center => _myPosition != null
+      ? LatLng(_myPosition!.latitude, _myPosition!.longitude)
+      : _palestineCenter;
+
+  List<Marker> get _markers {
+    final list = <Marker>[];
+    // My location
+    if (_myPosition != null) {
+      list.add(Marker(
+        point: LatLng(_myPosition!.latitude, _myPosition!.longitude),
+        width: 36, height: 36,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+          ),
+          child: const Icon(Icons.person_pin_circle_rounded, color: Colors.white, size: 20),
+        ),
+      ));
+    }
+    // Therapists
+    for (final t in _therapists) {
+      final lat = (t['latitude'] as num?)?.toDouble();
+      final lng = (t['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null) continue;
+      final isSelected = _selected?['id'] == t['id'];
+      list.add(Marker(
+        point: LatLng(lat, lng),
+        width: 44, height: 44,
+        child: GestureDetector(
+          onTap: () => setState(() => _selected = (_selected?['id'] == t['id']) ? null : t),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.accent : AppColors.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [BoxShadow(
+                color: (isSelected ? AppColors.accent : AppColors.primary).withOpacity(0.4),
+                blurRadius: 8, spreadRadius: 1,
+              )],
+            ),
+            child: const Icon(Icons.medical_services_rounded, color: Colors.white, size: 22),
+          ),
+        ),
+      ));
+    }
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final initialPos = _myPosition != null
-        ? LatLng(_myPosition!.latitude, _myPosition!.longitude)
-        : const LatLng(31.9, 35.2); // Palestine center
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.surface,
@@ -195,26 +199,26 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         ]),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _init,
-            tooltip: 'تحديث',
-          ),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _init),
         ],
       ),
       body: Stack(children: [
-        // ── Google Map ─────────────────────────────────────────────────
-        GoogleMap(
-          onMapCreated: (c) {
-            _mapController = c;
-            if (_myPosition != null && _therapists.isNotEmpty) _fitMap();
-          },
-          initialCameraPosition: CameraPosition(target: initialPos, zoom: 12),
-          markers: _markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          mapType: MapType.normal,
+        // ── flutter_map with OpenStreetMap tiles ──────────────────────
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _center,
+            initialZoom: 12,
+            onTap: (_, __) => setState(() => _selected = null),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.nabdh.patient',
+              maxZoom: 19,
+            ),
+            MarkerLayer(markers: _markers),
+          ],
         ),
 
         // ── Loading overlay ────────────────────────────────────────────
@@ -226,7 +230,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
 
         // ── FABs ───────────────────────────────────────────────────────
         Positioned(
-          bottom: _selected != null ? 200 : 20,
+          bottom: _selected != null ? 210 : 20,
           left: 16,
           child: Column(children: [
             FloatingActionButton.small(
@@ -257,9 +261,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
             child: _TherapistCard(
               therapist: _selected!,
               onClose: () => setState(() => _selected = null),
-              onView: () => context.push(
-                '/therapists/${_selected!['id']}',
-              ),
+              onView: () => context.push('/therapists/${_selected!['id']}'),
             ),
           ),
       ]),
@@ -267,26 +269,20 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
   }
 }
 
-// ─── Therapist bottom card ───────────────────────────────────────────────────
 class _TherapistCard extends StatelessWidget {
   final Map<String, dynamic> therapist;
   final VoidCallback onClose;
   final VoidCallback onView;
-
-  const _TherapistCard({
-    required this.therapist,
-    required this.onClose,
-    required this.onView,
-  });
+  const _TherapistCard({required this.therapist, required this.onClose, required this.onView});
 
   @override
   Widget build(BuildContext context) {
-    final name       = therapist['full_name'] as String? ?? '';
-    final rating     = (therapist['rating_average'] as num?)?.toStringAsFixed(1) ?? '0';
-    final distance   = therapist['distance_km'];
-    final online     = therapist['accepts_online'] as bool? ?? false;
-    final inPerson   = therapist['accepts_in_person'] as bool? ?? false;
-    final specs      = (therapist['specializations'] as List? ?? []).cast<String>();
+    final name     = therapist['full_name'] as String? ?? '';
+    final rating   = (therapist['rating_average'] as num?)?.toStringAsFixed(1) ?? '0';
+    final distance = therapist['distance_km'];
+    final online   = therapist['accepts_online'] as bool? ?? false;
+    final inPerson = therapist['accepts_in_person'] as bool? ?? false;
+    final specs    = (therapist['specializations'] as List? ?? []).cast<String>();
 
     return Container(
       margin: const EdgeInsets.all(12),
@@ -294,11 +290,8 @@ class _TherapistCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 20, offset: const Offset(0, -4)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15),
+            blurRadius: 20, offset: const Offset(0, -4))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
@@ -306,29 +299,21 @@ class _TherapistCard extends StatelessWidget {
             radius: 26,
             backgroundColor: AppColors.primary.withOpacity(0.1),
             child: Text(name.isNotEmpty ? name[0] : '?',
-                style: const TextStyle(
-                    color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 20)),
+                style: const TextStyle(color: AppColors.primary,
+                    fontWeight: FontWeight.w800, fontSize: 20)),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             Row(children: [
               const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
-              const SizedBox(width: 3),
-              Text(rating,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-              const SizedBox(width: 10),
+              Text(' $rating', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              const SizedBox(width: 8),
               const Icon(Icons.place_rounded, size: 14, color: AppColors.textHint),
-              const SizedBox(width: 3),
-              Text('$distance كم',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              Text(' $distance كم', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ]),
           ])),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, color: AppColors.textHint),
-            onPressed: onClose,
-          ),
+          IconButton(icon: const Icon(Icons.close_rounded, color: AppColors.textHint), onPressed: onClose),
         ]),
         if (specs.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -345,8 +330,7 @@ class _TherapistCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(specs[i],
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.primary,
+                    style: const TextStyle(fontSize: 11, color: AppColors.primary,
                         fontWeight: FontWeight.w600)),
               ),
             ),
@@ -354,8 +338,7 @@ class _TherapistCard extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         Row(children: [
-          if (inPerson)
-            _TypeBadge(label: '🏥 حضوري', color: AppColors.primary),
+          if (inPerson) _TypeBadge(label: '🏥 حضوري', color: AppColors.primary),
           if (online) ...[
             if (inPerson) const SizedBox(width: 8),
             _TypeBadge(label: '🎥 أونلاين', color: AppColors.accent),
@@ -365,8 +348,7 @@ class _TherapistCard extends StatelessWidget {
             onPressed: onView,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20),
             ),
             child: const Text('عرض الملف',
@@ -379,10 +361,8 @@ class _TherapistCard extends StatelessWidget {
 }
 
 class _TypeBadge extends StatelessWidget {
-  final String label;
-  final Color color;
+  final String label; final Color color;
   const _TypeBadge({required this.label, required this.color});
-
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -391,7 +371,6 @@ class _TypeBadge extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: color.withOpacity(0.3)),
     ),
-    child: Text(label,
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+    child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
   );
 }

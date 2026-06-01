@@ -22,9 +22,9 @@ class AssessmentController extends Controller
     {
         $validated = $request->validate([
             'patient_id' => 'nullable|integer',
-            'type'       => 'required|in:phq9,gad7',
+            'type'       => 'required|in:phq9,gad7,nrs,rom,dash,whodas,berg,barthel,other',
             'answers'    => 'required|array',
-            'score'      => 'required|integer|min:0|max:27',
+            'score'      => 'required|integer|min:0|max:100',
             'severity'   => 'required|string|max:100',
         ]);
 

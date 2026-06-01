@@ -4,6 +4,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/l10n/s.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -63,13 +64,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
     appBar: AppBar(
-      title: const Text('الإشعارات'),
+      title: Text(S.notifications),
       actions: [
         if (_notifications.any((n) => n['read_at'] == null))
           TextButton(
             onPressed: _markAll,
-            child: const Text('قراءة الكل',
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+            child: Text(S.markAllRead,
+              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
       ],
     ),
     body: _loading
@@ -80,11 +81,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ? ListView(children: [
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.6,
-                  child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.notifications_off_outlined, size: 64, color: AppColors.textHint),
-                    SizedBox(height: 12),
-                    Text('لا توجد إشعارات',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+                  child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.notifications_off_outlined, size: 64, color: AppColors.textHint),
+                    const SizedBox(height: 12),
+                    Text(S.noNotifications,
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
                   ])),
                 ),
               ])

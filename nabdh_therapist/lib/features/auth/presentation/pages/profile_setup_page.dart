@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
 import 'dart:io';
 import '../../../../core/network/api_client.dart';
@@ -16,8 +17,8 @@ class ProfileSetupPage extends StatefulWidget {
 
 class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final _pageController = PageController();
-  int _currentStep = 0;
-  bool _isLoading = false;
+  int  _currentStep  = 0;
+  bool _isLoading    = false;
   bool _isSubmitting = false;
 
   // Step 1 — Basic info
@@ -39,12 +40,24 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final _langController = TextEditingController();
   String _langProficiency = 'fluent';
 
+  // Step 4 — Documents
+  // Each entry: { 'type': 'cv'|'license'|'certificate'|'other', 'label': '...', 'file': File }
+  final List<Map<String, dynamic>> _documents = [];
+
+  static const _totalSteps = 4;
+
   static const _degrees = ['بكالوريوس', 'ماجستير', 'دكتوراه', 'دبلوم', 'زمالة'];
   static const _proficiencyLabels = {
     'basic': 'أساسية',
     'conversational': 'محادثة',
     'fluent': 'طليقة',
     'native': 'لغة أم',
+  };
+  static const _docTypes = {
+    'cv':          'السيرة الذاتية',
+    'license':     'الترخيص المهني',
+    'certificate': 'شهادة / دبلوم',
+    'other':       'وثيقة أخرى',
   };
   static const _cities = [
     'رام الله', 'نابلس', 'الخليل', 'بيت لحم', 'جنين',
@@ -90,7 +103,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
 
   void _nextStep() {
     if (!_validateStep(_currentStep)) return;
-    if (_currentStep < 2) {
+    if (_currentStep < _totalSteps - 1) {
       _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
       setState(() => _currentStep++);
     } else {
@@ -119,6 +132,11 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       case 2:
         if (_languages.isEmpty) error = 'أضف لغة واحدة على الأقل';
         break;
+      case 3:
+        // CV is required
+        final hasCV = _documents.any((d) => d['type'] == 'cv');
+        if (!hasCV) error = 'يجب رفع السيرة الذاتية (CV)';
+        break;
     }
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -133,14 +151,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     try {
-      // Upload avatar first if selected
+      // 1. Upload avatar if selected
       String? avatarPath;
       if (_avatarFile != null) {
         final form = await ApiClient.multipartPost('/therapist/profile/avatar', _avatarFile!.path, 'avatar');
         avatarPath = form.data['avatar_path'];
       }
 
-      // Complete profile
+      // 2. Complete profile
       await ApiClient.instance.post('/therapist/profile/complete', data: {
         'full_name':          _nameController.text.trim(),
         'title':              _titleController.text.trim(),
@@ -153,9 +171,20 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         if (avatarPath != null) 'avatar_path': avatarPath,
       });
 
-      // Add languages
+      // 3. Add languages
       for (final lang in _languages) {
         await ApiClient.instance.post('/therapist/profile/language', data: lang);
+      }
+
+      // 4. Upload documents
+      for (final doc in _documents) {
+        final file = doc['file'] as File;
+        final formData = FormData.fromMap({
+          'file':  await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+          'type':  doc['type'] as String,
+          'label': doc['label'] as String,
+        });
+        await ApiClient.instance.post('/therapist/documents', data: formData);
       }
 
       if (!mounted) return;
@@ -202,6 +231,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                   _buildStep1(),
                   _buildStep2(),
                   _buildStep3(),
+                  _buildStep4(),
                 ],
               ),
             ),
@@ -229,7 +259,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('إكمال الملف الشخصي', style: Theme.of(context).textTheme.titleMedium),
-                Text('الخطوة ${_currentStep + 1} من 3', style: Theme.of(context).textTheme.bodyMedium),
+                Text('الخطوة ${_currentStep + 1} من $_totalSteps', style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
           ),
@@ -239,12 +269,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   }
 
   Widget _buildStepper() {
-    const labels = ['المعلومات', 'التخصص', 'اللغات'];
+    const labels = ['المعلومات', 'التخصص', 'اللغات', 'الوثائق'];
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.only(bottom: 16, left: 20, right: 20),
       child: Row(
-        children: List.generate(3, (i) {
+        children: List.generate(_totalSteps, (i) {
           final done    = i < _currentStep;
           final current = i == _currentStep;
           return Expanded(
@@ -255,22 +285,22 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 32, height: 32,
+                      width: 30, height: 30,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: done || current ? AppColors.primary : AppColors.border,
                       ),
                       child: Center(
                         child: done
-                            ? const Icon(Icons.check, color: Colors.white, size: 16)
-                            : Text('${i + 1}', style: TextStyle(color: current ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 13)),
+                            ? const Icon(Icons.check, color: Colors.white, size: 14)
+                            : Text('${i + 1}', style: TextStyle(color: current ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 12)),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(labels[i], style: TextStyle(fontSize: 11, color: current ? AppColors.primary : AppColors.textSecondary, fontWeight: current ? FontWeight.w600 : FontWeight.normal)),
+                    Text(labels[i], style: TextStyle(fontSize: 10, color: current ? AppColors.primary : AppColors.textSecondary, fontWeight: current ? FontWeight.w600 : FontWeight.normal)),
                   ],
                 ),
-                if (i < 2) Expanded(child: Container(height: 2, color: done ? AppColors.primary : AppColors.border)),
+                if (i < _totalSteps - 1) Expanded(child: Container(height: 2, color: done ? AppColors.primary : AppColors.border)),
               ],
             ),
           );
@@ -279,7 +309,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  // ── Step 1: Basic Info ──────────────────────────────────────────
+  // ── Step 1: Basic Info ─────────────────────────────────────────
   Widget _buildStep1() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -287,8 +317,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-
-          // Avatar
           Center(
             child: GestureDetector(
               onTap: _pickAvatar,
@@ -315,23 +343,18 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             ),
           ),
           Center(child: TextButton(onPressed: _pickAvatar, child: const Text('إضافة صورة شخصية'))),
-
           const SizedBox(height: 20),
           _label('الاسم الكامل *'),
           TextField(controller: _nameController, decoration: const InputDecoration(hintText: 'مثال: أحمد محمد علي')),
-
           const SizedBox(height: 16),
           _label('اللقب المهني'),
           TextField(controller: _titleController, decoration: const InputDecoration(hintText: 'مثال: أخصائي علاج طبيعي')),
-
           const SizedBox(height: 16),
           _label('الجنس *'),
           _genderSelector(),
-
           const SizedBox(height: 16),
           _label('المدينة *'),
           _cityDropdown(),
-
           const SizedBox(height: 16),
           _label('نبذة شخصية'),
           TextField(
@@ -345,7 +368,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  // ── Step 2: Specialization & Experience ────────────────────────
+  // ── Step 2: Specialization & Experience ───────────────────────
   Widget _buildStep2() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -353,17 +376,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-
           _label('التخصصات * (يمكن اختيار أكثر من واحد)'),
           const SizedBox(height: 8),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _specializationsGrid(),
-
           const SizedBox(height: 20),
           _label('الدرجة العلمية *'),
           _degreeDropdown(),
-
           const SizedBox(height: 16),
           _label('سنوات الخبرة *'),
           TextField(
@@ -377,7 +397,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  // ── Step 3: Languages ──────────────────────────────────────────
+  // ── Step 3: Languages ─────────────────────────────────────────
   Widget _buildStep3() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -389,8 +409,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           const SizedBox(height: 4),
           Text('أضف اللغات التي يمكنك التواصل بها مع مرضاك', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 16),
-
-          // Add language form
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -419,10 +437,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Languages list
           if (_languages.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
@@ -436,82 +451,259 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  Widget _languageChip(int index, Map<String, String> lang) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.language, color: AppColors.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(child: Text('${lang['language']} — ${_proficiencyLabels[lang['proficiency']]}',
-              style: const TextStyle(fontWeight: FontWeight.w500))),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
-            onPressed: () => setState(() => _languages.removeAt(index)),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Nav buttons ────────────────────────────────────────────────
-  Widget _buildNavButtons() {
-    return Container(
+  // ── Step 4: Documents ─────────────────────────────────────────
+  Widget _buildStep4() {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      color: AppColors.surface,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_currentStep > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _prevStep,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 52),
-                  side: const BorderSide(color: AppColors.border),
-                  foregroundColor: AppColors.textPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: const Text('رجوع'),
-              ),
+          const SizedBox(height: 8),
+
+          // Info banner
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
             ),
-          if (_currentStep > 0) const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _nextStep,
-              child: _isSubmitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(_currentStep < 2 ? 'التالي' : 'إرسال الطلب'),
-            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                'يجب رفع السيرة الذاتية. يمكنك إضافة الترخيص المهني والشهادات للمساعدة في التحقق من حسابك بشكل أسرع.',
+                style: TextStyle(fontSize: 12, color: AppColors.primary.withOpacity(0.85), height: 1.5),
+              )),
+            ]),
           ),
+          const SizedBox(height: 20),
+
+          // Add document buttons
+          _label('أضف وثائقك'),
+          const SizedBox(height: 12),
+
+          // Quick add buttons
+          Wrap(spacing: 8, runSpacing: 8,
+            children: _docTypes.entries.map((e) {
+              final alreadyAdded = _documents.any((d) => d['type'] == e.key);
+              return OutlinedButton.icon(
+                onPressed: alreadyAdded ? null : () => _pickDocument(e.key, e.value),
+                icon: Icon(_docIcon(e.key), size: 16),
+                label: Text(e.value, style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: alreadyAdded ? AppColors.textSecondary : AppColors.primary,
+                  side: BorderSide(color: alreadyAdded ? AppColors.border : AppColors.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // Added documents list
+          if (_documents.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(children: [
+                const Icon(Icons.upload_file_outlined, size: 40, color: AppColors.textSecondary),
+                const SizedBox(height: 8),
+                const Text('لم تُرفع أي وثيقة بعد', style: TextStyle(color: AppColors.textSecondary)),
+                const SizedBox(height: 4),
+                Text('ابدأ برفع السيرة الذاتية (مطلوب)', style: TextStyle(fontSize: 12, color: AppColors.error.withOpacity(0.7))),
+              ]),
+            )
+          else ...[
+            Text('الوثائق المرفوعة (${_documents.length})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            ..._documents.asMap().entries.map((e) => _docChip(e.key, e.value)),
+          ],
+
+          const SizedBox(height: 20),
+          // Tips
+          _buildDocTips(),
         ],
       ),
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────
+  Widget _buildDocTips() => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('نصائح للقبول السريع:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+      const SizedBox(height: 8),
+      ...[
+        '✅  ارفع CV حديث بصيغة PDF',
+        '✅  أضف الترخيص المهني الصادر من الجهة المختصة',
+        '✅  الشهادات الجامعية تُسرّع التحقق من حسابك',
+        '📁  الملفات المقبولة: PDF، JPG، PNG (حد أقصى 10MB)',
+      ].map((t) => Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Text(t, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+      )),
+    ]),
+  );
+
+  // ── Document helpers ──────────────────────────────────────────
+  Future<void> _pickDocument(String type, String label) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        allowMultiple: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final path = result.files.single.path;
+      if (path == null) return;
+
+      setState(() {
+        _documents.add({
+          'type':  type,
+          'label': label,
+          'file':  File(path),
+          'name':  result.files.single.name,
+        });
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('خطأ في رفع الملف: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+  }
+
+  Widget _docChip(int index, Map<String, dynamic> doc) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+    ),
+    child: Row(children: [
+      Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(_docIcon(doc['type'] as String), color: AppColors.primary, size: 18),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(doc['label'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(doc['name'] as String,  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+      ])),
+      IconButton(
+        icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+        onPressed: () => setState(() => _documents.removeAt(index)),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+      ),
+    ]),
+  );
+
+  IconData _docIcon(String type) {
+    switch (type) {
+      case 'cv':          return Icons.description_rounded;
+      case 'license':     return Icons.verified_user_rounded;
+      case 'certificate': return Icons.school_rounded;
+      default:            return Icons.attach_file_rounded;
+    }
+  }
+
+  // ── Language helpers ──────────────────────────────────────────
+  Widget _languageChip(int index, Map<String, String> lang) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withOpacity(0.06),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.language, color: AppColors.primary, size: 20),
+      const SizedBox(width: 10),
+      Expanded(child: Text('${lang['language']} — ${_proficiencyLabels[lang['proficiency']]}',
+          style: const TextStyle(fontWeight: FontWeight.w500))),
+      IconButton(
+        icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+        onPressed: () => setState(() => _languages.removeAt(index)),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+      ),
+    ]),
+  );
+
+  void _addLanguage() {
+    final lang = _langController.text.trim();
+    if (lang.isEmpty) return;
+    if (_languages.any((l) => l['language'] == lang)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هذه اللغة مضافة مسبقاً')));
+      return;
+    }
+    setState(() {
+      _languages.add({'language': lang, 'proficiency': _langProficiency});
+      _langController.clear();
+    });
+  }
+
+  // ── Nav buttons ───────────────────────────────────────────────
+  Widget _buildNavButtons() => Container(
+    padding: const EdgeInsets.all(20),
+    color: AppColors.surface,
+    child: Row(children: [
+      if (_currentStep > 0) ...[
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _prevStep,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 52),
+              side: const BorderSide(color: AppColors.border),
+              foregroundColor: AppColors.textPrimary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('رجوع'),
+          ),
+        ),
+        const SizedBox(width: 12),
+      ],
+      Expanded(
+        flex: 2,
+        child: ElevatedButton(
+          onPressed: _isSubmitting ? null : _nextStep,
+          child: _isSubmitting
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : Text(_currentStep < _totalSteps - 1 ? 'التالي' : 'إرسال الطلب'),
+        ),
+      ),
+    ]),
+  );
+
+  // ── Helpers ───────────────────────────────────────────────────
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
   );
 
-  Widget _genderSelector() {
-    return Row(
-      children: [
-        Expanded(child: _genderOption('male', 'ذكر', Icons.male)),
-        const SizedBox(width: 12),
-        Expanded(child: _genderOption('female', 'أنثى', Icons.female)),
-      ],
-    );
-  }
+  Widget _genderSelector() => Row(children: [
+    Expanded(child: _genderOption('male', 'ذكر', Icons.male)),
+    const SizedBox(width: 12),
+    Expanded(child: _genderOption('female', 'أنثى', Icons.female)),
+  ]);
 
   Widget _genderOption(String value, String label, IconData icon) {
     final selected = _gender == value;
@@ -525,46 +717,39 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? AppColors.primary : AppColors.border),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: selected ? Colors.white : AppColors.textSecondary, size: 20),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: selected ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.w600)),
-          ],
-        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: selected ? Colors.white : AppColors.textSecondary, size: 20),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: selected ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.w600)),
+        ]),
       ),
     );
   }
 
-  Widget _cityDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _cityController.text.isEmpty ? null : _cityController.text,
-      hint: const Text('اختر المدينة'),
-      decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        filled: true, fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-      items: _cities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-      onChanged: (v) { if (v != null) _cityController.text = v; },
-    );
-  }
+  Widget _cityDropdown() => DropdownButtonFormField<String>(
+    value: _cityController.text.isEmpty ? null : _cityController.text,
+    hint: const Text('اختر المدينة'),
+    decoration: InputDecoration(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      filled: true, fillColor: AppColors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    ),
+    items: _cities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+    onChanged: (v) { if (v != null) _cityController.text = v; },
+  );
 
-  Widget _degreeDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _degree,
-      decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        filled: true, fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-      items: _degrees.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-      onChanged: (v) { if (v != null) setState(() => _degree = v); },
-    );
-  }
+  Widget _degreeDropdown() => DropdownButtonFormField<String>(
+    value: _degree,
+    decoration: InputDecoration(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      filled: true, fillColor: AppColors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    ),
+    items: _degrees.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+    onChanged: (v) { if (v != null) setState(() => _degree = v); },
+  );
 
   Widget _specializationsGrid() {
     if (_specializations.isEmpty) {
@@ -598,30 +783,15 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  Widget _proficiencyDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _langProficiency,
-      decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        filled: true, fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: _proficiencyLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-      onChanged: (v) { if (v != null) setState(() => _langProficiency = v); },
-    );
-  }
-
-  void _addLanguage() {
-    final lang = _langController.text.trim();
-    if (lang.isEmpty) return;
-    if (_languages.any((l) => l['language'] == lang)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هذه اللغة مضافة مسبقاً')));
-      return;
-    }
-    setState(() {
-      _languages.add({'language': lang, 'proficiency': _langProficiency});
-      _langController.clear();
-    });
-  }
+  Widget _proficiencyDropdown() => DropdownButtonFormField<String>(
+    value: _langProficiency,
+    decoration: InputDecoration(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+      filled: true, fillColor: AppColors.background,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    ),
+    items: _proficiencyLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+    onChanged: (v) { if (v != null) setState(() => _langProficiency = v); },
+  );
 }

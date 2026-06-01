@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/s.dart';
 import '../network/api_client.dart';
 import '../services/notification_service.dart';
 import '../widgets/whatsapp_fab.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/phone_input_page.dart';
@@ -43,13 +45,16 @@ final appRouter = GoRouter(
                          loc == '/auth/set-password' ||
                          loc == '/auth/otp';
 
-    if (isSplash)                              return null;
+    final isOnboarding = loc == '/onboarding';
+
+    if (isSplash || isOnboarding)              return null;
     if (!isAuth && !isAuthRoute)               return '/auth';
     if (isAuth  && isAuthRoute && !isSetupRoute) return '/home';
     return null;
   },
   routes: [
-    GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
+    GoRoute(path: '/splash',     builder: (_, __) => const SplashPage()),
+    GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingPage()),
 
     // ── Auth ──────────────────────────────────────────────────────────
     GoRoute(path: '/auth',              builder: (_, __) => const WelcomePage()),
@@ -214,22 +219,22 @@ class _PatientShellState extends State<PatientShell> {
         context.go(_tabs[i]);
       },
       destinations: [
-        const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'الرئيسية'),
-        const NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search_rounded),
-            label: 'الأخصائيون'),
-        const NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month_rounded),
-            label: 'مواعيدي'),
-        const NavigationDestination(
-            icon: Icon(Icons.play_circle_outline_rounded),
-            selectedIcon: Icon(Icons.play_circle_rounded),
-            label: 'ريلز'),
+        NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: S.home),
+        NavigationDestination(
+            icon: const Icon(Icons.search_outlined),
+            selectedIcon: const Icon(Icons.search_rounded),
+            label: S.therapists),
+        NavigationDestination(
+            icon: const Icon(Icons.calendar_month_outlined),
+            selectedIcon: const Icon(Icons.calendar_month_rounded),
+            label: S.appointments),
+        NavigationDestination(
+            icon: const Icon(Icons.play_circle_outline_rounded),
+            selectedIcon: const Icon(Icons.play_circle_rounded),
+            label: S.reels),
         NavigationDestination(
           icon: _unread > 0
               ? Badge(label: Text('$_unread'), child: const Icon(Icons.chat_outlined))
@@ -237,12 +242,12 @@ class _PatientShellState extends State<PatientShell> {
           selectedIcon: _unread > 0
               ? Badge(label: Text('$_unread'), child: const Icon(Icons.chat_rounded))
               : const Icon(Icons.chat_rounded),
-          label: 'الرسائل',
+          label: S.messages,
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.person_outline_rounded),
-          selectedIcon: Icon(Icons.person_rounded),
-          label: 'حسابي',
+        NavigationDestination(
+          icon: const Icon(Icons.person_outline_rounded),
+          selectedIcon: const Icon(Icons.person_rounded),
+          label: S.myAccount,
         ),
       ],
     ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../../core/l10n/s.dart';
 import '../../../../core/services/agora_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -33,12 +34,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
   RtcEngine? _engine;
   String?    _token;
 
-  bool _joining      = true;
-  bool _joined       = false;
-  bool _error        = false;
-  bool _mutedMic     = false;
-  bool _mutedSpeaker = false;
-  bool _cameraOff    = false;
+  bool _joining               = true;
+  bool _joined                = false;
+  bool _error                 = false;
+  bool _permPermanentlyDenied = false;
+  bool _mutedMic              = false;
+  bool _mutedSpeaker          = false;
+  bool _cameraOff             = false;
 
   int? _remoteUid;
   int  _callSeconds = 0;
@@ -51,12 +53,19 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   Future<void> _init() async {
-    // 1. Permissions
+    // 1. Permissions — check permanently denied first
     final perms = widget.isVideo
         ? [Permission.microphone, Permission.camera]
         : [Permission.microphone];
+    for (final p in perms) {
+      if (await p.isPermanentlyDenied) {
+        _permPermanentlyDenied = true;
+        if (mounted) setState(() { _joining = false; _error = true; });
+        return;
+      }
+    }
     final statuses = await perms.request();
-    if (statuses.values.any((s) => s.isDenied)) {
+    if (statuses.values.any((s) => !s.isGranted)) {
       if (mounted) setState(() { _joining = false; _error = true; });
       return;
     }
@@ -344,20 +353,48 @@ class _VideoCallPageState extends State<VideoCallPage> {
   Widget _buildError() => Scaffold(
     backgroundColor: const Color(0xFF0A1628),
     body: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.call_end_rounded, color: Colors.red, size: 56),
-        const SizedBox(height: 16),
-        const Text('تعذّر الاتصال',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
-        const SizedBox(height: 8),
-        const Text('تأكد من إذن الميكروفون والكاميرا',
-            style: TextStyle(color: Colors.white54, fontSize: 13)),
-        const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed: () => context.pop(),
-          child: const Text('رجوع'),
-        ),
-      ]),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.mic_off_rounded, color: Colors.redAccent, size: 64),
+          const SizedBox(height: 20),
+          const Text('تعذّر الاتصال',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Text(
+            _permPermanentlyDenied
+                ? 'تم رفض أذونات الميكروفون والكاميرا بشكل دائم.\nافتح إعدادات الهاتف لمنح الأذونات.'
+                : 'يحتاج التطبيق إذن الميكروفون${widget.isVideo ? " والكاميرا" : ""} لإجراء المكالمة.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54, fontSize: 14, height: 1.6),
+          ),
+          const SizedBox(height: 28),
+          if (_permPermanentlyDenied) ...[
+            ElevatedButton.icon(
+              onPressed: () async { await openAppSettings(); },
+              icon: const Icon(Icons.settings_rounded),
+              label: const Text('فتح إعدادات التطبيق'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(220, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          OutlinedButton.icon(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
+            label: Text(S.back, style: const TextStyle(color: Colors.white70)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white24),
+              minimumSize: const Size(220, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ]),
+      ),
     ),
   );
 }

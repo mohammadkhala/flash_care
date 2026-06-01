@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/s.dart';
 import '../services/notification_service.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/phone_input_page.dart';
@@ -44,13 +46,16 @@ final appRouter = GoRouter(
                             loc == '/auth/setup'        ||
                             loc == '/auth/pending';
 
-    if (isSplash || isPostAuthSetup) return null;
+    final isOnboarding = loc == '/onboarding';
+
+    if (isSplash || isPostAuthSetup || isOnboarding) return null;
     if (!isAuth && !isAuthRoute) return '/auth';
     if (isAuth && isAuthRoute) return '/home';
     return null;
   },
   routes: [
-    GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
+    GoRoute(path: '/splash',     builder: (_, __) => const SplashPage()),
+    GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingPage()),
 
     // ── Auth flow ─────────────────────────────────────────────
     GoRoute(path: '/auth',          builder: (_, __) => const WelcomePage()),
@@ -223,30 +228,30 @@ class _HomeShellState extends State<HomeShell> {
           context.go(_tabs[i]);
         },
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'الرئيسية',
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: S.home,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'المواعيد',
+          NavigationDestination(
+            icon: const Icon(Icons.calendar_month_outlined),
+            selectedIcon: const Icon(Icons.calendar_month),
+            label: S.appointments,
           ),
           NavigationDestination(
             icon: const Icon(Icons.chat_outlined),
             selectedIcon: const Icon(Icons.chat),
-            label: 'الرسائل',
+            label: S.messages,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.play_circle_outline_rounded),
-            selectedIcon: Icon(Icons.play_circle_rounded),
-            label: 'الريلز',
+          NavigationDestination(
+            icon: const Icon(Icons.play_circle_outline_rounded),
+            selectedIcon: const Icon(Icons.play_circle_rounded),
+            label: S.reels,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.fitness_center_outlined),
-            selectedIcon: Icon(Icons.fitness_center),
-            label: 'البرامج',
+          NavigationDestination(
+            icon: const Icon(Icons.fitness_center_outlined),
+            selectedIcon: const Icon(Icons.fitness_center),
+            label: S.programs,
           ),
           NavigationDestination(
             icon: _unreadNotifications > 0
@@ -261,7 +266,7 @@ class _HomeShellState extends State<HomeShell> {
                     child: const Icon(Icons.person),
                   )
                 : const Icon(Icons.person),
-            label: 'ملفي',
+            label: S.myProfile,
           ),
         ],
       ),

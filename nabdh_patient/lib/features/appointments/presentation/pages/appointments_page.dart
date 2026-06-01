@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -81,14 +82,14 @@ class _AppointmentsPageState extends State<AppointmentsPage>
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
     appBar: AppBar(
-      title: const Text('مواعيدي'),
+      title: Text(S.appointments),
       bottom: TabBar(
         controller: _tabCtrl,
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textSecondary,
         indicatorColor: AppColors.primary,
         labelStyle: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700),
-        tabs: const [Tab(text: 'القادمة'), Tab(text: 'السابقة')],
+        tabs: [Tab(text: S.upcoming), Tab(text: S.previous)],
       ),
     ),
     body: TabBarView(
@@ -98,13 +99,13 @@ class _AppointmentsPageState extends State<AppointmentsPage>
           items: _upcoming,
           loading: _loadingUpcoming,
           onRefresh: _loadUpcoming,
-          emptyText: 'لا توجد مواعيد قادمة',
+          emptyText: S.noUpcomingAppts,
         ),
         _AppointmentList(
           items: _past,
           loading: _loadingPast,
           onRefresh: _loadPast,
-          emptyText: 'لا توجد مواعيد سابقة',
+          emptyText: S.noPreviousAppts,
         ),
       ],
     ),
@@ -227,7 +228,7 @@ class _TypeBadge extends StatelessWidget {
         Icon(isOnline ? Icons.videocam_outlined : Icons.location_on_outlined,
           size: 12, color: isOnline ? AppColors.primary : AppColors.accent),
         const SizedBox(width: 4),
-        Text(isOnline ? 'أونلاين' : 'حضوري',
+        Text(isOnline ? S.online : S.inPerson,
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
             color: isOnline ? AppColors.primary : AppColors.accent)),
       ]),
@@ -251,11 +252,11 @@ class _StatusBadge extends StatelessWidget {
 
   String get _label {
     switch (status) {
-      case 'confirmed': return 'مؤكد';
-      case 'pending': return 'قيد الانتظار';
-      case 'completed': return 'مكتمل';
-      case 'cancelled': return 'ملغى';
-      default: return status;
+      case 'confirmed': return S.confirmed;
+      case 'pending':   return S.pending;
+      case 'completed': return S.statusCompleted;
+      case 'cancelled': return S.statusCancelled;
+      default:          return status;
     }
   }
 

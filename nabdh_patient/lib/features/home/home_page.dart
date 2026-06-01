@@ -7,6 +7,7 @@ import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/json_utils.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -95,9 +96,9 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'صباح الخير';
-    if (hour < 17) return 'مساء الخير';
-    return 'مساء النور';
+    if (hour < 12) return S.goodMorning;
+    if (hour < 17) return S.goodAfternoon;
+    return S.goodEvening;
   }
 
   @override
@@ -156,8 +157,7 @@ class _HomePageState extends State<HomePage> {
     ]),
   );
 
-  static const _moodEmojis  = ['😢', '😟', '😐', '🙂', '😄'];
-  static const _moodLabels  = ['سيء', 'حزين', 'عادي', 'جيد', 'ممتاز'];
+  static const _moodEmojis = ['😢', '😟', '😐', '🙂', '😄'];
   static const _moodColors  = [
     Color(0xFFEF5350), Color(0xFFFF7043),
     Color(0xFF78909C), Color(0xFF66BB6A), Color(0xFF26C6DA),
@@ -181,8 +181,8 @@ class _HomePageState extends State<HomePage> {
         Row(children: [
           const Text('💭', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 8),
-          const Text('كيف تشعر اليوم؟',
-            style: TextStyle(
+          Text(S.howAreYouToday,
+            style: const TextStyle(
               fontSize: 16, fontWeight: FontWeight.w800,
               color: AppColors.textPrimary)),
           const Spacer(),
@@ -191,7 +191,7 @@ class _HomePageState extends State<HomePage> {
             decoration: BoxDecoration(
               color: _moodColors[_mood! - 1].withOpacity(0.12),
               borderRadius: BorderRadius.circular(20)),
-            child: Text(_moodLabels[_mood! - 1],
+            child: Text(S.moodLabels[_mood! - 1],
               style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w700,
                 color: _moodColors[_mood! - 1])),
@@ -243,8 +243,8 @@ class _HomePageState extends State<HomePage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('موعدك القادم',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        Text(S.nextAppointment,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(16),
@@ -288,27 +288,27 @@ class _HomePageState extends State<HomePage> {
   Widget _buildQuickActions() => Padding(
     padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('إجراءات سريعة',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+      Text(S.quickActions,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       const SizedBox(height: 14),
       Row(children: [
         Expanded(child: _QuickAction(
           icon: Icons.calendar_month_rounded,
-          label: 'احجز موعد',
+          label: S.bookAppointment,
           color: AppColors.primary,
           onTap: () => context.push('/therapists'),
         )),
         const SizedBox(width: 12),
         Expanded(child: _QuickAction(
           icon: Icons.fitness_center_rounded,
-          label: 'برامجي',
+          label: S.myProgramsShort,
           color: AppColors.accent,
           onTap: () => context.push('/programs'),
         )),
         const SizedBox(width: 12),
         Expanded(child: _QuickAction(
           icon: Icons.quiz_rounded,
-          label: 'التقييمات',
+          label: S.assessments,
           color: AppColors.purple,
           onTap: () {},
         )),
@@ -324,13 +324,13 @@ class _HomePageState extends State<HomePage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(children: [
-            const Text('أخصائيون مميزون',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(S.featuredTherapists,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const Spacer(),
             TextButton(
               onPressed: () => context.go('/therapists'),
-              child: const Text('عرض الكل',
-                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+              child: Text(S.seeAll,
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
           ]),
         ),
         const SizedBox(height: 10),
@@ -356,13 +356,13 @@ class _HomePageState extends State<HomePage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(children: [
-            const Text('ريلز الصحة النفسية',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(S.reelsPhysio,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const Spacer(),
             TextButton(
               onPressed: () => context.go('/reels'),
-              child: const Text('عرض الكل',
-                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+              child: Text(S.seeAll,
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
           ]),
         ),
         const SizedBox(height: 10),

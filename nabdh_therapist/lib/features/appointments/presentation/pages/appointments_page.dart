@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/l10n/s.dart';
 
 class AppointmentsPage extends StatefulWidget {
   const AppointmentsPage({super.key});
@@ -14,7 +15,7 @@ class _AppointmentsPageState extends State<AppointmentsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   final _statuses = [null, 'pending', 'confirmed', 'completed', 'cancelled_by_therapist'];
-  final _labels   = ['الكل', 'انتظار', 'مؤكدة', 'مكتملة', 'ملغية'];
+  List<String> get _labels => [S.allLabel, S.waitingStatus, S.confirmedPlural, S.completedPlural, S.cancelledPlural];
   List _list = [];
   bool _loading = true;
 
@@ -64,11 +65,11 @@ class _AppointmentsPageState extends State<AppointmentsPage>
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
               ),
-              child: const SafeArea(
+              child: SafeArea(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Text('المواعيد',
-                      style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Text(S.appointments,
+                      style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
                 ),
               ),
             ),
@@ -121,7 +122,7 @@ class _AppointmentsPageState extends State<AppointmentsPage>
       decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.06), shape: BoxShape.circle),
       child: const Icon(Icons.calendar_today_outlined, size: 44, color: AppColors.primary)),
     const SizedBox(height: 16),
-    const Text('لا توجد مواعيد', style: TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
+    Text(S.noAppointments, style: const TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
   ]));
 }
 
@@ -130,10 +131,10 @@ class _AppCard extends StatelessWidget {
   final VoidCallback onTap;
   const _AppCard({required this.apt, required this.onTap});
 
-  static const _statusConfig = {
-    'pending':   ('بانتظار التأكيد', AppColors.warningLight, Color(0xFFFFF8E1), Icons.pending_outlined),
-    'confirmed': ('مؤكد',           AppColors.primary,      Color(0xFFE3F2FD), Icons.event_available_rounded),
-    'completed': ('مكتمل',          AppColors.successLight,  Color(0xFFE8F5E9), Icons.done_all_rounded),
+  Map<String, (String, Color, Color, IconData)> get _statusConfig => {
+    'pending':   (S.waitingStatus, AppColors.warningLight, const Color(0xFFFFF8E1), Icons.pending_outlined),
+    'confirmed': (S.confirmed,     AppColors.primary,      const Color(0xFFE3F2FD), Icons.event_available_rounded),
+    'completed': (S.completedPlural, AppColors.successLight, const Color(0xFFE8F5E9), Icons.done_all_rounded),
   };
 
   @override
@@ -144,7 +145,7 @@ class _AppCard extends StatelessWidget {
     final name      = (patient?['full_name'] ?? patient?['user']?['name'] ?? 'مريض') as String;
     final isOnline  = apt['type'] == 'online';
 
-    final cfg = _statusConfig[status] ?? ('ملغي', AppColors.errorLight, const Color(0xFFFFEBEE), Icons.cancel_outlined);
+    final cfg = _statusConfig[status] ?? (S.cancelledPlural, AppColors.errorLight, const Color(0xFFFFEBEE), Icons.cancel_outlined);
     final color = cfg.$2;
     final bg    = cfg.$3;
     final icon  = cfg.$4;
@@ -191,10 +192,10 @@ class _AppCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.accent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8)),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.videocam_rounded, size: 11, color: AppColors.accent),
-                        SizedBox(width: 3),
-                        Text('أونلاين', style: TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w700)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.videocam_rounded, size: 11, color: AppColors.accent),
+                        const SizedBox(width: 3),
+                        Text(S.online, style: const TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w700)),
                       ])),
                 ]),
                 const SizedBox(height: 5),

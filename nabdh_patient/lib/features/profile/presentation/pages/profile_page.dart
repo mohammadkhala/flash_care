@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/l10n/s.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
@@ -184,7 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
           pinned: true,
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          title: const Text('ملفي الشخصي'),
+          title: Text(S.myProfile),
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
               decoration: const BoxDecoration(gradient: AppGradients.primary),
@@ -212,14 +213,14 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(children: [
               Expanded(child: _StatCard(
                 icon: Icons.calendar_month_rounded,
-                label: 'الجلسات',
+                label: S.sessions,
                 value: '$_appointmentsCount',
                 color: AppColors.primary,
               )),
               const SizedBox(width: 12),
               Expanded(child: _StatCard(
                 icon: Icons.fitness_center_rounded,
-                label: 'البرامج',
+                label: S.programs,
                 value: '$_programsCount',
                 color: AppColors.accent,
               )),
@@ -231,43 +232,43 @@ class _ProfilePageState extends State<ProfilePage> {
             // Quick links
             _LinkTile(
               icon: Icons.fitness_center_rounded,
-              label: 'برامجي',
+              label: S.myPrograms,
               color: AppColors.accent,
               onTap: () => context.push('/programs'),
             ),
             _LinkTile(
               icon: Icons.folder_copy_outlined,
-              label: 'وثائقي الطبية',
+              label: S.myDocuments,
               color: AppColors.purple,
               onTap: () => context.push('/documents'),
             ),
             _LinkTile(
               icon: Icons.notifications_outlined,
-              label: 'الإشعارات',
+              label: S.notifications,
               color: AppColors.accent,
               onTap: () => context.push('/notifications'),
             ),
             _LinkTile(
               icon: Icons.language_outlined,
-              label: 'اللغة',
+              label: S.language,
               color: const Color(0xFF0288D1),
               onTap: () => showLanguagePicker(context),
             ),
             _LinkTile(
               icon: Icons.star_outline_rounded,
-              label: 'قيّم التطبيق',
+              label: S.rateApp,
               color: AppColors.warning,
               onTap: () {},
             ),
             _LinkTile(
               icon: Icons.description_outlined,
-              label: 'شروط الاستخدام',
+              label: S.termsOfUse,
               color: AppColors.textSecondary,
               onTap: () => context.push('/terms'),
             ),
             _LinkTile(
               icon: Icons.privacy_tip_outlined,
-              label: 'سياسة الخصوصية',
+              label: S.privacyPolicy,
               color: AppColors.textSecondary,
               onTap: () => context.push('/privacy'),
             ),
@@ -276,7 +277,7 @@ class _ProfilePageState extends State<ProfilePage> {
             OutlinedButton.icon(
               onPressed: _logout,
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('تسجيل الخروج'),
+              label: Text(S.logout),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
@@ -288,7 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
             // Delete account
             TextButton(
               onPressed: _deleteAccount,
-              child: const Text('حذف الحساب نهائياً',
+              child: Text(S.deleteAccount,
                 style: TextStyle(
                   color: AppColors.textHint,
                   fontSize: 13,
@@ -337,10 +338,11 @@ class _MoodTracker extends StatelessWidget {
   const _MoodTracker({required this.mood, required this.onSelect});
 
   static const _emojis = ['😢', '😟', '😐', '🙂', '😄'];
-  static const _labels = ['سيء', 'حزين', 'عادي', 'جيد', 'ممتاز'];
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final labels = S.moodLabels;
+    return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: AppColors.surface,
@@ -348,8 +350,8 @@ class _MoodTracker extends StatelessWidget {
       border: Border.all(color: AppColors.border),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('كيف حالك اليوم؟',
-        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+      Text(S.howAreYouToday,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
       const SizedBox(height: 14),
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(5, (i) {
         final val = i + 1;
@@ -370,7 +372,7 @@ class _MoodTracker extends StatelessWidget {
               child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 26))),
             ),
             const SizedBox(height: 4),
-            Text(_labels[i], style: TextStyle(
+            Text(labels[i], style: TextStyle(
               fontSize: 10,
               color: selected ? AppColors.primary : AppColors.textHint,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w400)),
@@ -379,6 +381,7 @@ class _MoodTracker extends StatelessWidget {
       })),
     ]),
   );
+  }
 }
 
 class _LinkTile extends StatelessWidget {

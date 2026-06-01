@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/l10n/s.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -79,23 +80,23 @@ class _HomePageState extends State<HomePage> {
             _SummaryCard(stats: _stats, loading: _loading),
             const SizedBox(height: 20),
 
-            const Text('الإجراءات السريعة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+            Text(S.quickActions,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
             const SizedBox(height: 12),
             _QuickActions(),
             const SizedBox(height: 20),
 
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('مواعيد اليوم',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
-              TextButton(onPressed: () => context.go('/appointments'), child: const Text('الكل')),
+              Text(S.todayAppointments,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+              TextButton(onPressed: () => context.go('/appointments'), child: Text(S.allLabel)),
             ]),
             const SizedBox(height: 8),
             _TodayAppointments(appointments: _today, loading: _loading),
             const SizedBox(height: 20),
 
-            const Text('أدوات التقييم',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+            Text(S.assessmentTools,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
             const SizedBox(height: 12),
             _AssessmentCards(),
             const SizedBox(height: 40),
@@ -162,10 +163,10 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (icon: Icons.article_outlined,      label: 'المقالات',    route: '/articles',   color: AppColors.accent),
-      (icon: Icons.video_call_outlined,    label: 'الريلز',      route: '/reels',      color: AppColors.primary),
-      (icon: Icons.bar_chart,              label: 'الإحصائيات', route: '/statistics', color: const Color(0xFF7C3AED)),
-      (icon: Icons.fitness_center_outlined,label: 'البرامج',     route: '/programs',   color: const Color(0xFFEF6C00)),
+      (icon: Icons.article_outlined,       label: S.myArticles,    route: '/articles',   color: AppColors.accent),
+      (icon: Icons.video_call_outlined,    label: S.myReels,       route: '/reels',      color: AppColors.primary),
+      (icon: Icons.bar_chart,              label: S.myStatistics,  route: '/statistics', color: const Color(0xFF7C3AED)),
+      (icon: Icons.fitness_center_outlined,label: S.myPrograms,    route: '/programs',   color: const Color(0xFFEF6C00)),
     ];
 
     return Row(
@@ -211,8 +212,8 @@ class _TodayAppointments extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Center(child: Text('لا توجد مواعيد اليوم',
-          style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo'))),
+      child: Center(child: Text(S.noAppointmentsToday,
+          style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo'))),
     );
 
     return Column(children: appointments.map((a) {
@@ -249,8 +250,8 @@ class _TodayAppointments extends StatelessWidget {
   Widget _statusBadge(String status) {
     Color c; String label;
     switch (status) {
-      case 'confirmed': c = AppColors.success; label = 'مؤكد'; break;
-      case 'pending':   c = AppColors.warning; label = 'انتظار'; break;
+      case 'confirmed': c = AppColors.success; label = S.confirmed; break;
+      case 'pending':   c = AppColors.warning; label = S.waitingStatus; break;
       default:          c = AppColors.textSecondary; label = status;
     }
     return Container(
@@ -265,19 +266,19 @@ class _AssessmentCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Expanded(child: _AssessCard(
-      title: 'PHQ-9',
-      subtitle: 'تقييم الاكتئاب',
-      icon: Icons.psychology_outlined,
+      title: 'NRS',
+      subtitle: 'مقياس تقييم الألم',
+      icon: Icons.monitor_heart_outlined,
       color: const Color(0xFF7C3AED),
-      onTap: () => context.push('/assessment', extra: {'patientId': 0, 'type': 'phq9'}),
+      onTap: () => context.push('/assessment', extra: {'patientId': 0, 'type': 'nrs'}),
     )),
     const SizedBox(width: 12),
     Expanded(child: _AssessCard(
-      title: 'GAD-7',
-      subtitle: 'تقييم القلق',
-      icon: Icons.self_improvement_outlined,
+      title: 'ROM',
+      subtitle: 'تقييم نطاق الحركة',
+      icon: Icons.accessibility_new_rounded,
       color: AppColors.accent,
-      onTap: () => context.push('/assessment', extra: {'patientId': 0, 'type': 'gad7'}),
+      onTap: () => context.push('/assessment', extra: {'patientId': 0, 'type': 'rom'}),
     )),
   ]);
 }

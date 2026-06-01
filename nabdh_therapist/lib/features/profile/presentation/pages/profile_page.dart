@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/l10n/s.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
@@ -174,7 +175,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileSection(
                   icon: Icons.auto_stories_rounded,
                   iconColor: AppColors.primary,
-                  title: 'نبذة شخصية',
+                  title: S.personalBio,
                   child: Text(_therapist['bio'],
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.7)),
                 ),
@@ -185,19 +186,19 @@ class _ProfilePageState extends State<ProfilePage> {
               _ProfileSection(
                 icon: Icons.badge_rounded,
                 iconColor: const Color(0xFF7C3AED),
-                title: 'المعلومات الأساسية',
+                title: S.basicInfo,
                 child: Column(children: [
                   _PhoneRow(phone: _user['phone']?.toString() ?? '—'),
                   _divider(),
-                  _InfoRow(Icons.location_on_outlined, 'المدينة', _therapist['city']?.toString() ?? '—'),
+                  _InfoRow(Icons.location_on_outlined, S.city, _therapist['city']?.toString() ?? '—'),
                   _divider(),
-                  _InfoRow(Icons.school_outlined, 'الدرجة العلمية', _therapist['degree']?.toString() ?? '—'),
+                  _InfoRow(Icons.school_outlined, S.degree, _therapist['degree']?.toString() ?? '—'),
                   _divider(),
-                  _InfoRow(Icons.work_history_outlined, 'سنوات الخبرة',
-                      '${_therapist['years_experience'] ?? 0} سنة'),
+                  _InfoRow(Icons.work_history_outlined, S.yearsExp,
+                      '${_therapist['years_experience'] ?? 0}'),
                   _divider(),
-                  _InfoRow(Icons.person_2_outlined, 'الجنس',
-                      _therapist['gender'] == 'male' ? 'ذكر' : 'أنثى'),
+                  _InfoRow(Icons.person_2_outlined, S.gender,
+                      _therapist['gender'] == 'male' ? S.male : S.female),
                 ]),
               ),
               const SizedBox(height: 12),
@@ -207,7 +208,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileSection(
                   icon: Icons.psychology_rounded,
                   iconColor: AppColors.accent,
-                  title: 'التخصصات',
+                  title: S.specializations,
                   child: Wrap(spacing: 8, runSpacing: 8,
                     children: (_therapist['specializations'] as List).map<Widget>((s) =>
                       _SpecChip(label: (s as Map)['name_ar'] ?? '')).toList()),
@@ -220,7 +221,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileSection(
                   icon: Icons.language_rounded,
                   iconColor: const Color(0xFFEF6C00),
-                  title: 'اللغات',
+                  title: S.languages,
                   child: Column(
                     children: (_therapist['languages'] as List).map<Widget>((l) {
                       final m = l as Map;
@@ -250,7 +251,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileSection(
                   icon: Icons.school_rounded,
                   iconColor: const Color(0xFF0288D1),
-                  title: 'المؤهلات العلمية',
+                  title: S.education,
                   child: Column(
                     children: (_therapist['educations'] as List).map<Widget>((e) {
                       final m = e as Map;
@@ -281,9 +282,9 @@ class _ProfilePageState extends State<ProfilePage> {
               _ProfileSection(
                 icon: Icons.link_rounded,
                 iconColor: AppColors.primary,
-                title: 'الصفحات',
+                title: S.pages,
                 child: Column(children: [
-                  _NavRow(Icons.calendar_month_rounded, 'إدارة جدول الدوام', '/schedule',
+                  _NavRow(Icons.calendar_month_rounded, S.schedule, '/schedule',
                       '', AppColors.primary),
                   _divider(),
                   InkWell(
@@ -299,27 +300,27 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: const Icon(Icons.language_outlined,
                               color: Color(0xFF0288D1), size: 18)),
                         const SizedBox(width: 12),
-                        const Expanded(child: Text('اللغة',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                        Expanded(child: Text(S.language,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
                         const Icon(Icons.chevron_left_rounded,
                             color: AppColors.textSecondary, size: 20),
                       ]),
                     ),
                   ),
                   _divider(),
-                  _NavRow(Icons.article_outlined, 'مقالاتي التثقيفية', '/articles',
+                  _NavRow(Icons.article_outlined, S.articles, '/articles',
                       '${_stats['articles_count'] ?? ''}', AppColors.accent),
                   _divider(),
-                  _NavRow(Icons.video_collection_outlined, 'الريلز', '/reels',
+                  _NavRow(Icons.video_collection_outlined, S.reels, '/reels',
                       '${_stats['reels_count'] ?? ''}', AppColors.primary),
                   _divider(),
-                  _NavRow(Icons.bar_chart_rounded, 'الإحصائيات التفصيلية', '/statistics',
+                  _NavRow(Icons.bar_chart_rounded, S.statistics, '/statistics',
                       '', const Color(0xFF7C3AED)),
                   _divider(),
-                  _NavRow(Icons.description_outlined, 'شروط الاستخدام', '/terms',
+                  _NavRow(Icons.description_outlined, S.termsOfUse, '/terms',
                       '', AppColors.textSecondary),
                   _divider(),
-                  _NavRow(Icons.privacy_tip_outlined, 'سياسة الخصوصية', '/privacy',
+                  _NavRow(Icons.privacy_tip_outlined, S.privacyPolicy, '/privacy',
                       '', AppColors.textSecondary),
                 ]),
               ),
@@ -329,7 +330,7 @@ class _ProfilePageState extends State<ProfilePage> {
               OutlinedButton.icon(
                 onPressed: _logout,
                 icon: const Icon(Icons.logout_rounded),
-                label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 15)),
+                label: Text(S.logout, style: const TextStyle(fontSize: 15)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
                   side: const BorderSide(color: AppColors.error),
@@ -341,8 +342,8 @@ class _ProfilePageState extends State<ProfilePage> {
               // ── Delete Account ─────────────────────────────────
               TextButton(
                 onPressed: _deleteAccount,
-                child: const Text('حذف الحساب نهائياً',
-                  style: TextStyle(
+                child: Text(S.deleteAccount,
+                  style: const TextStyle(
                     color: AppColors.textHint,
                     fontSize: 13,
                     decoration: TextDecoration.underline,
@@ -395,7 +396,7 @@ class _HeroHeader extends StatelessWidget {
         const SizedBox(height: 10),
         Row(mainAxisSize: MainAxisSize.min, children: [
           if (therapist['is_approved'] == true)
-            _badge(Icons.verified_rounded, 'موثق', Colors.greenAccent),
+            _badge(Icons.verified_rounded, S.verified, Colors.greenAccent),
           if (therapist['is_approved'] == true) const SizedBox(width: 8),
           _badge(Icons.location_on_rounded, therapist['city'] as String? ?? '', Colors.white70),
         ]),
@@ -543,7 +544,7 @@ class _PhoneRow extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
     const Icon(Icons.phone_outlined, color: AppColors.primary, size: 20),
     const SizedBox(width: 12),
-    const Text('الهاتف', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+    Text(S.phone, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
     const Spacer(),
     Text(phone, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
     const SizedBox(width: 8),

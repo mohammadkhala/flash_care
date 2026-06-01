@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nabd_logo.dart';
@@ -40,9 +41,17 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   Future<void> _checkAuth() async {
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
-    final token = await ApiClient.getToken();
+    final token  = await ApiClient.getToken();
+    final prefs  = await SharedPreferences.getInstance();
+    final sawOnb = prefs.getBool('onboarding_seen') ?? false;
     if (!mounted) return;
-    context.go(token != null ? '/home' : '/auth');
+    if (token != null) {
+      context.go('/home');
+    } else if (!sawOnb) {
+      context.go('/onboarding');
+    } else {
+      context.go('/auth');
+    }
   }
 
   @override

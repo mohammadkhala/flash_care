@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -142,12 +143,12 @@ class _TherapistListPageState extends State<TherapistListPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
     appBar: AppBar(
-      title: const Text('الأخصائيون'),
+      title: Text(S.therapists),
       backgroundColor: AppColors.surface,
       actions: [
         IconButton(
           icon: const Icon(Icons.map_rounded),
-          tooltip: 'خريطة الأخصائيين',
+          tooltip: S.mapLabel,
           onPressed: () => context.push('/map'),
         ),
         IconButton(
@@ -160,9 +161,9 @@ class _TherapistListPageState extends State<TherapistListPage> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: TextField(
           controller: _searchCtrl,
-          decoration: const InputDecoration(
-            hintText: 'ابحث عن أخصائي...',
-            prefixIcon: Icon(Icons.search, color: AppColors.textHint),
+          decoration: InputDecoration(
+            hintText: S.searchHint,
+            prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
           ),
         ),
       ),
@@ -173,8 +174,8 @@ class _TherapistListPageState extends State<TherapistListPage> {
         : RefreshIndicator(
             onRefresh: () => _loadTherapists(reset: true),
             child: _therapists.isEmpty
-              ? const Center(child: Text('لا يوجد أخصائيون',
-                  style: TextStyle(color: AppColors.textSecondary)))
+              ? Center(child: Text(S.noTherapists,
+                  style: const TextStyle(color: AppColors.textSecondary)))
               : ListView.separated(
                   controller: _scroll,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -204,11 +205,11 @@ class _TherapistListPageState extends State<TherapistListPage> {
         onRemove: () { setState(() => _selectedSpec = null); _loadTherapists(reset: true); },
       ),
       if (_selectedGender != null) _FilterChip(
-        label: _selectedGender == 'male' ? 'ذكر' : 'أنثى',
+        label: _selectedGender == 'male' ? S.male : S.female,
         onRemove: () { setState(() => _selectedGender = null); _loadTherapists(reset: true); },
       ),
       if (_selectedType != null) _FilterChip(
-        label: _selectedType == 'online' ? 'أونلاين' : 'حضوري',
+        label: _selectedType == 'online' ? S.online : S.inPerson,
         onRemove: () { setState(() => _selectedType = null); _loadTherapists(reset: true); },
       ),
     ]),
@@ -303,7 +304,7 @@ class _TherapistListCard extends StatelessWidget {
             if (price != null) ...[
               Text('$price ₪', style: const TextStyle(
                 fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
-              const Text('للجلسة', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text(S.perSession, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
             ],
             const SizedBox(height: 8),
             const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: AppColors.textHint),
@@ -351,15 +352,15 @@ class _FiltersSheetState extends State<_FiltersSheet> {
     padding: EdgeInsets.fromLTRB(20, 20, 20,
         MediaQuery.of(context).viewInsets.bottom + 20),
     child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('تصفية النتائج',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      Text(S.filterResults,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 20),
-      const Text('التخصص', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      Text(S.specialization, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, runSpacing: 8, children: [
         GestureDetector(
           onTap: () => setState(() => _spec = null),
-          child: _chip('الكل', _spec == null)),
+          child: _chip(S.all, _spec == null)),
         ...widget.specializations.map((s) {
           final id = s['id'] as int?;
           final name = s['name_ar'] as String? ?? '';
@@ -369,25 +370,25 @@ class _FiltersSheetState extends State<_FiltersSheet> {
         }),
       ]),
       const SizedBox(height: 16),
-      const Text('الجنس', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      Text(S.genderLabel, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, children: [
-        GestureDetector(onTap: () => setState(() => _gender = null), child: _chip('الكل', _gender == null)),
-        GestureDetector(onTap: () => setState(() => _gender = 'male'), child: _chip('ذكر', _gender == 'male')),
-        GestureDetector(onTap: () => setState(() => _gender = 'female'), child: _chip('أنثى', _gender == 'female')),
+        GestureDetector(onTap: () => setState(() => _gender = null), child: _chip(S.all, _gender == null)),
+        GestureDetector(onTap: () => setState(() => _gender = 'male'), child: _chip(S.male, _gender == 'male')),
+        GestureDetector(onTap: () => setState(() => _gender = 'female'), child: _chip(S.female, _gender == 'female')),
       ]),
       const SizedBox(height: 16),
-      const Text('نوع الجلسة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      Text(S.sessionType, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, children: [
-        GestureDetector(onTap: () => setState(() => _type = null), child: _chip('الكل', _type == null)),
-        GestureDetector(onTap: () => setState(() => _type = 'online'), child: _chip('أونلاين', _type == 'online')),
-        GestureDetector(onTap: () => setState(() => _type = 'in_person'), child: _chip('حضوري', _type == 'in_person')),
+        GestureDetector(onTap: () => setState(() => _type = null), child: _chip(S.all, _type == null)),
+        GestureDetector(onTap: () => setState(() => _type = 'online'), child: _chip(S.online, _type == 'online')),
+        GestureDetector(onTap: () => setState(() => _type = 'in_person'), child: _chip(S.inPerson, _type == 'in_person')),
       ]),
       const SizedBox(height: 24),
       ElevatedButton(
         onPressed: () { Navigator.pop(context); widget.onApply(_spec, _gender, _type); },
-        child: const Text('تطبيق الفلتر'),
+        child: Text(S.applyFilter),
       ),
     ]),
   );

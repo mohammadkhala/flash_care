@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/l10n/s.dart';
 
 class ConversationsPage extends StatefulWidget {
   const ConversationsPage({super.key});
@@ -47,7 +48,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
       onPressed: _openNewConversation,
       backgroundColor: AppColors.primary,
       icon: const Icon(Icons.add_comment_rounded, color: Colors.white),
-      label: const Text('محادثة جديدة', style: TextStyle(color: Colors.white)),
+      label: Text(S.newConversation, style: const TextStyle(color: Colors.white)),
     ),
     body: NestedScrollView(
       headerSliverBuilder: (_, __) => [
@@ -62,11 +63,11 @@ class _ConversationsPageState extends State<ConversationsPage> {
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
               ),
-              child: const SafeArea(
+              child: SafeArea(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Text('الرسائل',
-                      style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Text(S.messages,
+                      style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
                 ),
               ),
             ),
@@ -218,9 +219,9 @@ class _ConversationsPageState extends State<ConversationsPage> {
       decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.06), shape: BoxShape.circle),
       child: const Icon(Icons.chat_bubble_outline_rounded, size: 44, color: AppColors.primary)),
     const SizedBox(height: 16),
-    const Text('لا توجد محادثات', style: TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
+    Text(S.noConversations, style: const TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
     const SizedBox(height: 6),
-    const Text('ستظهر محادثاتك مع المرضى هنا', style: TextStyle(color: AppColors.textHint, fontSize: 13)),
+    Text(S.conversationsHint, style: const TextStyle(color: AppColors.textHint, fontSize: 13)),
     const SizedBox(height: 24),
   ]));
 }
@@ -242,11 +243,11 @@ class _PatientPickerSheet extends StatelessWidget {
         width: 40, height: 4,
         decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
       ),
-      const Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Align(
           alignment: Alignment.centerRight,
-          child: Text('اختر مريضاً', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          child: Text(S.selectPatient, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         ),
       ),
       Expanded(

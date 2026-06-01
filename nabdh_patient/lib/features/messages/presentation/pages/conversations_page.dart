@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -80,7 +81,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
-    appBar: AppBar(title: const Text('الرسائل')),
+    appBar: AppBar(title: Text(S.messages)),
     floatingActionButton: FloatingActionButton(
       onPressed: _startNewConversation,
       backgroundColor: AppColors.primary,
@@ -95,12 +96,12 @@ class _ConversationsPageState extends State<ConversationsPage> {
             ? ListView(children: [
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.6,
-                  child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.chat_bubble_outline_rounded,
+                  child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.chat_bubble_outline_rounded,
                       size: 64, color: AppColors.textHint),
-                    SizedBox(height: 12),
-                    Text('لا توجد محادثات',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+                    const SizedBox(height: 12),
+                    Text(S.noConversations,
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
                   ])),
                 ),
               ])
