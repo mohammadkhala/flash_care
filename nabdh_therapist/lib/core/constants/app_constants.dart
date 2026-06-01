@@ -10,6 +10,9 @@
   static const int otpLength = 6;
   static const int otpResendSeconds = 60;
 
+  // Agora RTC — replace with your App ID from https://console.agora.io
+  static const String agoraAppId = 'YOUR_AGORA_APP_ID';
+
   // Storage keys
   static const String tokenKey = 'auth_token';
   static const String userKey = 'current_user';

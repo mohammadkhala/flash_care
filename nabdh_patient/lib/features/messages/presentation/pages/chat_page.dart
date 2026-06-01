@@ -10,7 +10,8 @@ import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/jitsi_service.dart';
+import '../../../../core/services/agora_service.dart';
+import 'call_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 
 String _fix(String? url) {
@@ -215,11 +216,16 @@ class _ChatPageState extends State<ChatPage> {
       _showErr('أرسل رسالة أولاً لبدء المحادثة');
       return;
     }
-    await JitsiService.startCall(
-      room: 'nabdh-chat-$_convoId',
-      displayName: 'مريض',
-      videoMuted: !isVideo,
-    );
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CallScreen(
+        channel:     'nabdh-chat-$_convoId',
+        appId:       '',
+        isVideo:     isVideo,
+        partnerName: _partnerName,
+        uid:         0,
+      ),
+    ));
   }
 
   // ── Build ──────────────────────────────────────────────────────

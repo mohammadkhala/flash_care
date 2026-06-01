@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/jitsi_service.dart';
+import '../../../calls/presentation/pages/video_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
 
@@ -81,11 +81,15 @@ class _State extends State<AppointmentDetailPage> {
 
   Future<void> _startSession() async {
     final patientName = (_apt?['patient'] as Map?)?['full_name'] as String? ?? 'المريض';
-    await JitsiService.startCall(
-      room: 'nabdh-session-${widget.id}',
-      displayName: 'د. $patientName',
-      videoMuted: false,
-    );
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VideoCallPage(
+        channel:  'nabdh-session-${widget.id}',
+        appId:    '',
+        peerName: patientName,
+        isVideo:  true,
+      ),
+    ));
   }
 
   @override

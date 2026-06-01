@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Api\AgoraController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Patient\TherapistSearchController;
 use App\Http\Controllers\Shared\MessageController;
@@ -25,6 +26,9 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
     Route::post('set-password', [AuthController::class, 'setPassword']);
 });
+
+// ─── Agora RTC Token (requires auth) ─────────────────────────
+Route::middleware('auth:sanctum')->post('agora/token', [AgoraController::class, 'token']);
 
 // Public specializations list
 Route::get('specializations', function () {

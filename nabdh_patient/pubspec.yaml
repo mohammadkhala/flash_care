@@ -31,7 +31,7 @@ dependencies:
   video_player: ^2.9.2
   chewie: ^1.8.5
   flutter_rating_bar: ^4.0.1
-  jitsi_meet_flutter_sdk: ^10.1.0
+  agora_rtc_engine: ^6.5.2
   open_file: ^3.3.2
   fl_chart: ^0.69.0
 

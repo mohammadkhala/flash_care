@@ -5,16 +5,8 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/jitsi_service.dart';
 import '../../../../core/theme/app_theme.dart';
-
-Future<void> _joinJitsi(int appointmentId, {String displayName = 'مريض'}) async {
-  await JitsiService.startCall(
-    room: 'nabdh-session-$appointmentId',
-    displayName: displayName,
-    videoMuted: false,
-  );
-}
+import '../../../messages/presentation/pages/call_screen.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -341,7 +333,15 @@ class _JoinSessionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: () => _joinJitsi(appointmentId),
+    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CallScreen(
+        channel:     'nabdh-session-$appointmentId',
+        appId:       '',
+        isVideo:     true,
+        partnerName: 'أخصائي',
+        uid:         0,
+      ),
+    )),
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(16),
