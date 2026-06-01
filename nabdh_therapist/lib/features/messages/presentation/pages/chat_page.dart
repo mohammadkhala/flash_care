@@ -99,10 +99,9 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _msgs
           ..clear()
-          ..addAll(list.reversed.toList());
+          ..addAll(list); // API returns newest-first; ListView reverse:true handles display
         _loading = false;
       });
-      _scrollBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -284,6 +283,7 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
+                    reverse: true, // newest message at bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(

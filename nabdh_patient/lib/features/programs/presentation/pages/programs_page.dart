@@ -39,7 +39,17 @@ class _ProgramsPageState extends State<ProgramsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
-    appBar: AppBar(title: const Text('برامجي')),
+    appBar: AppBar(
+      title: const Text('برامجي'),
+      actions: [
+        TextButton.icon(
+          onPressed: () => context.push('/goals'),
+          icon: const Icon(Icons.track_changes_rounded, size: 18),
+          label: const Text('أهدافي'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
+      ],
+    ),
     body: _loading
       ? const Center(child: CircularProgressIndicator())
       : RefreshIndicator(

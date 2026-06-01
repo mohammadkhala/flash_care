@@ -12,6 +12,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/locale_service.dart';
 
 // ─── WorkManager background task ─────────────────────────────────────────────
 // Must be a top-level function annotated with vm:entry-point
@@ -116,31 +117,51 @@ void main() async {
     backoffPolicyDelay: const Duration(minutes: 5),
   );
 
+  // Load saved locale
+  await LocaleService.instance.load();
+
   // Wire up navigation BEFORE runApp so the pending-payload check works
   NotificationService.instance.setNavigator((route) => appRouter.push(route));
 
   runApp(const NabdhPatientApp());
 }
 
-class NabdhPatientApp extends StatelessWidget {
+class NabdhPatientApp extends StatefulWidget {
   const NabdhPatientApp({super.key});
 
   @override
+  State<NabdhPatientApp> createState() => _NabdhPatientAppState();
+}
+
+class _NabdhPatientAppState extends State<NabdhPatientApp> {
+  @override
+  void initState() {
+    super.initState();
+    LocaleService.instance.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final locale = LocaleService.instance.locale;
+    // Hebrew is also RTL like Arabic
+    final isRtl = locale.languageCode == 'ar' || locale.languageCode == 'he';
+
     return MaterialApp.router(
       title: 'نبض',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: appRouter,
-      locale: const Locale('ar'),
-      supportedLocales: const [Locale('ar'), Locale('en')],
+      locale: locale,
+      supportedLocales: LocaleService.supportedLocales,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: child!,
       ),
     );

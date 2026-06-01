@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/widgets/language_picker.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -245,6 +246,12 @@ class _ProfilePageState extends State<ProfilePage> {
               label: 'الإشعارات',
               color: AppColors.accent,
               onTap: () => context.push('/notifications'),
+            ),
+            _LinkTile(
+              icon: Icons.language_outlined,
+              label: 'اللغة',
+              color: const Color(0xFF0288D1),
+              onTap: () => showLanguagePicker(context),
             ),
             _LinkTile(
               icon: Icons.star_outline_rounded,

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../../core/widgets/language_picker.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -282,6 +283,30 @@ class _ProfilePageState extends State<ProfilePage> {
                 iconColor: AppColors.primary,
                 title: 'الصفحات',
                 child: Column(children: [
+                  _NavRow(Icons.calendar_month_rounded, 'إدارة جدول الدوام', '/schedule',
+                      '', AppColors.primary),
+                  _divider(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => showLanguagePicker(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        Container(padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0288D1).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.language_outlined,
+                              color: Color(0xFF0288D1), size: 18)),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('اللغة',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                        const Icon(Icons.chevron_left_rounded,
+                            color: AppColors.textSecondary, size: 20),
+                      ]),
+                    ),
+                  ),
+                  _divider(),
                   _NavRow(Icons.article_outlined, 'مقالاتي التثقيفية', '/articles',
                       '${_stats['articles_count'] ?? ''}', AppColors.accent),
                   _divider(),

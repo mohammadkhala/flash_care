@@ -24,6 +24,8 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/programs/presentation/pages/programs_page.dart';
 import '../../features/programs/presentation/pages/program_detail_page.dart';
 import '../../features/documents/presentation/pages/documents_page.dart';
+import '../../features/goals/presentation/pages/goals_page.dart';
+import '../../features/map/presentation/pages/map_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -140,6 +142,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/notifications',
       builder: (_, __) => const NotificationsPage(),
+    ),
+    GoRoute(
+      path: '/goals',
+      builder: (_, __) => const PatientGoalsPage(),
+    ),
+    GoRoute(
+      path: '/map',
+      builder: (_, __) => const TherapistMapPage(),
     ),
     GoRoute(
       path: '/programs',

@@ -133,6 +133,26 @@ class _State extends State<AppointmentDetailPage> {
             ]),
           ])),
         ]))),
+        const SizedBox(height: 12),
+
+        // Goals button
+        OutlinedButton.icon(
+          onPressed: () {
+            final patientId = (patient?['id'] as num?)?.toInt() ?? 0;
+            context.push('/goals', extra: {
+              'patientId':   patientId,
+              'patientName': name,
+            });
+          },
+          icon: const Icon(Icons.track_changes_rounded),
+          label: const Text('الأهداف العلاجية'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            minimumSize: const Size(double.infinity, 48),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
         const SizedBox(height: 16),
 
         // Actions

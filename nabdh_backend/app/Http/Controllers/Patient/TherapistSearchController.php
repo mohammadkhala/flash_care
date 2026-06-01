@@ -120,6 +120,59 @@ class TherapistSearchController extends Controller
         ]);
     }
 
+    /**
+     * GET /therapists/nearby?lat=&lng=&radius=50
+     * Returns approved therapists within radius (km) with coordinates, sorted by distance.
+     */
+    public function nearby(Request $request): JsonResponse
+    {
+        $request->validate([
+            'lat'    => 'required|numeric|between:-90,90',
+            'lng'    => 'required|numeric|between:-180,180',
+            'radius' => 'nullable|numeric|min:1|max:200',
+        ]);
+
+        $lat    = (float) $request->lat;
+        $lng    = (float) $request->lng;
+        $radius = (float) ($request->radius ?? 50);
+
+        // Haversine formula via raw SQL
+        $therapists = Therapist::where('is_approved', true)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->with(['specializations:id,name_ar,name_en', 'clinics:id,therapist_id,name,address,latitude,longitude'])
+            ->selectRaw("
+                therapists.*,
+                ( 6371 * acos(
+                    cos(radians(?)) * cos(radians(latitude))
+                    * cos(radians(longitude) - radians(?))
+                    + sin(radians(?)) * sin(radians(latitude))
+                )) AS distance_km
+            ", [$lat, $lng, $lat])
+            ->having('distance_km', '<=', $radius)
+            ->orderBy('distance_km')
+            ->limit(50)
+            ->get()
+            ->map(fn($t) => [
+                'id'             => $t->id,
+                'full_name'      => $t->full_name,
+                'title'          => $t->title,
+                'avatar'         => $t->avatar,
+                'rating_average' => $t->rating_average,
+                'rating_count'   => $t->rating_count,
+                'city'           => $t->city,
+                'latitude'       => (float) $t->latitude,
+                'longitude'      => (float) $t->longitude,
+                'distance_km'    => round($t->distance_km, 1),
+                'accepts_online' => (bool) $t->accepts_online,
+                'accepts_in_person' => (bool) $t->accepts_in_person,
+                'specializations'   => $t->specializations->map(fn($s) => $s->name_ar)->toArray(),
+                'clinics'           => $t->clinics,
+            ]);
+
+        return response()->json($therapists);
+    }
+
     public function availableSlots(Request $request, Therapist $therapist): JsonResponse
     {
         $request->validate([

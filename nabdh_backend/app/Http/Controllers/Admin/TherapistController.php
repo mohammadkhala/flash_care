@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Therapist;
+use App\Services\FcmService;
 use Illuminate\Http\Request;
 
 class TherapistController extends Controller
 {
+    public function __construct(private FcmService $fcmService) {}
     public function index(Request $request)
     {
         $query = Therapist::with(['user', 'specializations'])
@@ -41,9 +43,20 @@ class TherapistController extends Controller
 
     public function approve(Therapist $therapist)
     {
+        $wasApproved = $therapist->is_approved;
         $therapist->update(['is_approved' => true, 'approved_at' => now()]);
 
-        // Notify via backend API (or direct FCM)
+        // Send FCM notification on first approval only
+        if (!$wasApproved && $therapist->user) {
+            $this->fcmService->send(
+                $therapist->user,
+                'تمت الموافقة على حسابك 🎉',
+                'مرحباً بك في نبض! يمكنك الآن استقبال المرضى وإدارة مواعيدك.',
+                ['type' => 'account_approved'],
+                'account_approved'
+            );
+        }
+
         session()->flash('success', "تم قبول الأخصائي {$therapist->full_name}");
         return back();
     }
@@ -52,6 +65,17 @@ class TherapistController extends Controller
     {
         $request->validate(['reason' => 'required|string|max:500']);
         $therapist->update(['is_approved' => false]);
+
+        // Notify therapist of rejection
+        if ($therapist->user) {
+            $this->fcmService->send(
+                $therapist->user,
+                'تحديث حول طلبك',
+                'نأسف، لم نتمكن من قبول حسابك في الوقت الحالي: ' . $request->reason,
+                ['type' => 'account_rejected'],
+                'account_rejected'
+            );
+        }
 
         session()->flash('success', 'تم رفض الطلب وإشعار الأخصائي');
         return back();

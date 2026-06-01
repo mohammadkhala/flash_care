@@ -53,6 +53,10 @@ dependencies:
   # Fonts
   google_fonts: ^6.2.1
 
+  # Maps & Location
+  google_maps_flutter: ^2.9.0
+  geolocator: ^13.0.2
+
   # Utils
   intl: ^0.20.2
   url_launcher: ^6.3.1

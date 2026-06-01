@@ -28,7 +28,7 @@ class ReelController extends Controller
         $request->validate([
             'title'       => 'required|string|max:200',
             'description' => 'nullable|string|max:500',
-            'video'       => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/mpeg|max:102400',
+            'video'       => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/mpeg|max:512000',
         ]);
 
         $videoPath = $request->file('video')->store('reels/videos', 'public');

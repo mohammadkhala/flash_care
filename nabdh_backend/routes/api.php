@@ -33,6 +33,7 @@ Route::get('specializations', function () {
 
 // Public therapist listing
 Route::get('therapists', [TherapistSearchController::class, 'index']);
+Route::get('therapists/nearby', [TherapistSearchController::class, 'nearby']);
 Route::get('therapists/{therapist}', [TherapistSearchController::class, 'show']);
 Route::get('therapists/{therapist}/slots', [TherapistSearchController::class, 'availableSlots']);
 
@@ -108,6 +109,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reels', [ReelController::class, 'myReels']);
         Route::post('reels', [ReelController::class, 'store']);
         Route::delete('reels/{reel}', [ReelController::class, 'destroy']);
+
+        // Patient Goals (therapist manages)
+        Route::get('goals', [\App\Http\Controllers\Therapist\GoalController::class, 'index']);
+        Route::post('goals', [\App\Http\Controllers\Therapist\GoalController::class, 'store']);
+        Route::get('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'show']);
+        Route::put('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'update']);
+        Route::post('goals/{goal}/progress', [\App\Http\Controllers\Therapist\GoalController::class, 'updateProgress']);
+        Route::delete('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'destroy']);
     });
 
     // ── Patient Routes ────────────────────────────────────────
@@ -133,6 +142,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Pain Diary
         Route::get('pain-diary', [PatientHomeProgramController::class, 'painDiary']);
         Route::post('pain-diary', [PatientHomeProgramController::class, 'logPain']);
+
+        // Goals (patient read-only)
+        Route::get('goals', [\App\Http\Controllers\Patient\GoalController::class, 'index']);
+        Route::get('goals/{goal}', [\App\Http\Controllers\Patient\GoalController::class, 'show']);
 
         // Medical Documents
         Route::get('documents',           [PatientDocumentController::class, 'index']);

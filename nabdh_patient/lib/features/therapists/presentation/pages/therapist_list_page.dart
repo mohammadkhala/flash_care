@@ -146,6 +146,11 @@ class _TherapistListPageState extends State<TherapistListPage> {
       backgroundColor: AppColors.surface,
       actions: [
         IconButton(
+          icon: const Icon(Icons.map_rounded),
+          tooltip: 'خريطة الأخصائيين',
+          onPressed: () => context.push('/map'),
+        ),
+        IconButton(
           icon: const Icon(Icons.tune_rounded),
           onPressed: _showFilters),
       ],

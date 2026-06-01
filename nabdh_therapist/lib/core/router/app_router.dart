@@ -25,6 +25,9 @@ import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/calls/presentation/pages/video_call_page.dart';
 import '../../features/assessments/presentation/pages/assessment_page.dart';
+import '../../features/schedule/presentation/pages/schedule_page.dart';
+import '../../features/goals/presentation/pages/goals_page.dart';
+import '../../features/goals/presentation/pages/goal_detail_page.dart';
 import '../network/api_client.dart';
 
 final appRouter = GoRouter(
@@ -133,6 +136,28 @@ final appRouter = GoRouter(
           builder: (_, state) => CreateArticlePage(article: state.extra as Map?),
         ),
         GoRoute(path: '/notifications',   builder: (_, __) => const NotificationsPage()),
+        GoRoute(path: '/schedule', builder: (_, __) => const SchedulePage()),
+        GoRoute(
+          path: '/goals',
+          builder: (_, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return GoalsPage(
+              patientId:   extra['patientId']   as int?    ?? 0,
+              patientName: extra['patientName'] as String? ?? 'المريض',
+            );
+          },
+        ),
+        GoRoute(
+          path: '/goals/:id',
+          builder: (_, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return GoalDetailPage(
+              goalId:  int.parse(state.pathParameters['id']!),
+              goal:    extra['goal'] as Map<String, dynamic>? ?? {},
+              canEdit: extra['canEdit'] as bool? ?? true,
+            );
+          },
+        ),
         GoRoute(
           path: '/assessment',
           builder: (_, state) {
