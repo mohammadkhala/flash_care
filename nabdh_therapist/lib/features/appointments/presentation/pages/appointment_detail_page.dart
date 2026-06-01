@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/jitsi_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 class AppointmentDetailPage extends StatefulWidget {
   final int id;
@@ -37,7 +38,7 @@ class _State extends State<AppointmentDetailPage> {
         _o.text = note['objective']  ?? '';
         _a.text = note['assessment'] ?? '';
         _p.text = note['plan']       ?? '';
-        _pain   = (note['pain_scale'] as num?)?.toInt() ?? 0;
+        _pain   = jsonInt(note['pain_scale']);
       }
       setState(() { _apt = apt; _loading = false; });
     } catch (_) { setState(() => _loading = false); }

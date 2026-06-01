@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -437,7 +438,7 @@ class _QuickStatsRow extends StatelessWidget {
         const Icon(Icons.star_rounded, color: Colors.amber, size: 22),
         const SizedBox(height: 6),
         Text(
-          ((t['rating_average'] as num?)?.toStringAsFixed(1)) ?? '0.0',
+          jsonDouble(t['rating_average']).toStringAsFixed(1),
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.amber),
         ),
         Text('من ${t['rating_count'] ?? 0} تقييم',

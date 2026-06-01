@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/json_utils.dart';
 
 class StatisticsPage extends StatefulWidget {
   const StatisticsPage({super.key});
@@ -121,7 +122,7 @@ class _StatisticsPageState extends State<StatisticsPage>
 
   // ── Completion rate big card ─────────────────────────────────
   Widget _completionCard() {
-    final rate = (_stats['completion_rate'] as num?)?.toDouble() ?? 0;
+    final rate = jsonDouble(_stats['completion_rate']);
     final thisMonth = _stats['this_month_appointments'] ?? 0;
     final lastMonth = _stats['last_month_appointments'] ?? 0;
     final diff = thisMonth - lastMonth;
@@ -202,7 +203,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               barGroups: List.generate(monthly.length, (i) {
-                final count = (monthly[i] as Map)['count'] as num? ?? 0;
+                final count = jsonInt((monthly[i] as Map)['count']);
                 return BarChartGroupData(x: i, barRods: [BarChartRodData(
                   toY: count.toDouble(),
                   gradient: const LinearGradient(
@@ -286,7 +287,7 @@ class _StatisticsPageState extends State<StatisticsPage>
   Widget _weeklyCard() {
     final weekly = _stats['weekly_chart'] as List? ?? [];
     final maxVal = weekly.fold<double>(1, (m, e) {
-      final count = ((e as Map)['count'] as num?)?.toDouble() ?? 0;
+      final count = jsonDouble((e as Map)['count']);
       return count > m ? count : m;
     });
 
@@ -298,7 +299,7 @@ class _StatisticsPageState extends State<StatisticsPage>
       child: Column(children: [
         ...weekly.asMap().entries.map((e) {
           final item = e.value as Map;
-          final count = (item['count'] as num?)?.toInt() ?? 0;
+          final count = jsonInt(item['count']);
           final pct = maxVal > 0 ? count / maxVal : 0.0;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -325,7 +326,7 @@ class _StatisticsPageState extends State<StatisticsPage>
 
   // ── Rating card ──────────────────────────────────────────────
   Widget _ratingCard() {
-    final avg = (_stats['rating_average'] as num?)?.toDouble() ?? 0.0;
+    final avg = jsonDouble(_stats['rating_average']);
     final count = _stats['rating_count'] ?? 0;
     final dist = _stats['rating_distribution'] as List? ?? [];
 
@@ -348,7 +349,7 @@ class _StatisticsPageState extends State<StatisticsPage>
         Expanded(child: Column(children: dist.map((d) {
           final item = d as Map;
           final star = item['star'] as int? ?? 0;
-          final pct = (item['percentage'] as num?)?.toDouble() ?? 0;
+          final pct = jsonDouble(item['percentage']);
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(children: [

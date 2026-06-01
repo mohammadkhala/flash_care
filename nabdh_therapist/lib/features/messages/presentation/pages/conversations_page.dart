@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 class ConversationsPage extends StatefulWidget {
   const ConversationsPage({super.key});
@@ -88,10 +89,10 @@ class _ConversationsPageState extends State<ConversationsPage> {
                       final patient  = c['patient'] as Map? ?? {};
                       final last     = c['last_message'] as Map? ?? {};
                       final name     = patient['full_name'] as String? ?? 'مريض';
-                      final unread   = (c['therapist_unread'] as num?)?.toInt() ?? 0;
+                      final unread   = jsonInt(c['therapist_unread']);
                       final content  = last['content'] as String? ?? '';
                       final time     = last['created_at'] as String? ?? c['last_message_at'] as String?;
-                      final partnerId = (c['patient_id'] as num?)?.toInt();
+                      final partnerId = jsonInt(c['patient_id']);
 
                       return InkWell(
                         onTap: () => context.push(
@@ -192,14 +193,14 @@ class _ConversationsPageState extends State<ConversationsPage> {
   }
 
   Future<void> _startConversation(Map patient) async {
-    final patientId = (patient['id'] as num?)?.toInt();
+    final patientId = jsonInt(patient['id']);
     final name = patient['full_name'] as String? ?? 'مريض';
     if (patientId == null) return;
 
     // Send a placeholder message to create conversation, or just open chat with partnerId
     // Check if conversation already exists
     final existing = _convs.cast<Map>().where((c) =>
-      (c['patient_id'] as num?)?.toInt() == patientId
+      jsonInt(c['patient_id']) == patientId
     ).firstOrNull;
 
     if (existing != null) {
