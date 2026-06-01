@@ -106,16 +106,25 @@ class TherapistSearchController extends Controller
             ->orderBy('month')
             ->pluck('count', 'month');
 
+        $totalApts      = \App\Models\Appointment::where('therapist_id', $therapist->id)->count();
+        $completedApts  = \App\Models\Appointment::where('therapist_id', $therapist->id)->where('status', 'completed')->count();
+        $cancelledApts  = \App\Models\Appointment::where('therapist_id', $therapist->id)->where('status', 'cancelled')->count();
+        $completionRate = $totalApts > 0 ? round(($completedApts / $totalApts) * 100) : 0;
+
         return response()->json([
             'therapist'   => $therapist,
             'stats' => [
-                'total_sessions'    => $therapist->total_sessions,
-                'total_patients'    => $therapist->total_patients,
-                'rating_average'    => round($therapist->rating_average, 1),
-                'rating_count'      => $therapist->rating_count,
-                'years_experience'  => $therapist->years_experience,
-                'rating_distribution' => $distribution,
-                'monthly_sessions'    => $monthly,
+                'total_sessions'       => $therapist->total_sessions,
+                'total_patients'       => $therapist->total_patients,
+                'rating_average'       => round($therapist->rating_average, 1),
+                'rating_count'         => $therapist->rating_count,
+                'years_experience'     => $therapist->years_experience,
+                'total_appointments'   => $totalApts,
+                'completed_appointments' => $completedApts,
+                'cancelled_appointments' => $cancelledApts,
+                'completion_rate'      => $completionRate,
+                'rating_distribution'  => $distribution,
+                'monthly_sessions'     => $monthly,
             ],
         ]);
     }

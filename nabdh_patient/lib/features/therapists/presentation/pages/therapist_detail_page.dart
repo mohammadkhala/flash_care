@@ -419,13 +419,17 @@ class _StatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rating      = jsonDouble(stats['rating_average']);
-    final ratingCount = jsonInt(stats['rating_count']);
-    final sessions    = jsonInt(stats['total_sessions']);
-    final patients    = jsonInt(stats['total_patients']);
-    final years       = jsonInt(stats['years_experience']);
-    final dist        = (stats['rating_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
-    final monthly     = (stats['monthly_sessions']    as Map?)?.cast<String, dynamic>() ?? {};
+    final rating          = jsonDouble(stats['rating_average']);
+    final ratingCount     = jsonInt(stats['rating_count']);
+    final sessions        = jsonInt(stats['total_sessions']);
+    final patients        = jsonInt(stats['total_patients']);
+    final years           = jsonInt(stats['years_experience']);
+    final completionRate  = jsonInt(stats['completion_rate']);
+    final totalApts       = jsonInt(stats['total_appointments']);
+    final completedApts   = jsonInt(stats['completed_appointments']);
+    final cancelledApts   = jsonInt(stats['cancelled_appointments']);
+    final dist            = (stats['rating_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
+    final monthly         = (stats['monthly_sessions']    as Map?)?.cast<String, dynamic>() ?? {};
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -443,13 +447,40 @@ class _StatsTab extends StatelessWidget {
               label: 'عدد التقييمات', icon: Icons.rate_review_rounded,
               color: AppColors.primary),
             _StatCard(value: '$sessions',
-              label: 'إجمالي الجلسات', icon: Icons.event_available_rounded,
+              label: 'جلسات مكتملة', icon: Icons.event_available_rounded,
               color: AppColors.accent),
             _StatCard(value: '$patients',
               label: 'إجمالي المرضى', icon: Icons.people_rounded,
               color: const Color(0xFF059669)),
+            _StatCard(value: '$completionRate%',
+              label: 'نسبة الإكمال', icon: Icons.task_alt_rounded,
+              color: const Color(0xFF7C3AED)),
+            _StatCard(value: '$totalApts',
+              label: 'إجمالي المواعيد', icon: Icons.calendar_month_rounded,
+              color: AppColors.primaryDark),
           ],
         ),
+        // Appointment breakdown
+        if (totalApts > 0) ...[
+          const SizedBox(height: 20),
+          const _SectionTitle(title: 'توزيع المواعيد', icon: Icons.pie_chart_outlined),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface, borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Column(children: [
+              _BreakdownRow('مكتملة', completedApts, totalApts, AppColors.success),
+              const SizedBox(height: 8),
+              _BreakdownRow('ملغاة',  cancelledApts, totalApts, AppColors.error),
+              const SizedBox(height: 8),
+              _BreakdownRow('أخرى', totalApts - completedApts - cancelledApts, totalApts, AppColors.textHint),
+            ]),
+          ),
+        ],
         const SizedBox(height: 24),
 
         // Rating distribution
@@ -525,6 +556,33 @@ class _StatsTab extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _BreakdownRow extends StatelessWidget {
+  final String label;
+  final int count, total;
+  final Color color;
+  const _BreakdownRow(this.label, this.count, this.total, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total > 0 ? count / total : 0.0;
+    return Row(children: [
+      SizedBox(width: 60,
+        child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+      const SizedBox(width: 8),
+      Expanded(child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: pct, minHeight: 8,
+          backgroundColor: AppColors.border,
+          valueColor: AlwaysStoppedAnimation(color),
+        ),
+      )),
+      const SizedBox(width: 8),
+      Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+    ]);
   }
 }
 

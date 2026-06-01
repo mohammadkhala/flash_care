@@ -33,6 +33,16 @@ class FcmService
         }
     }
 
+    /**
+     * Send directly to a list of FCM tokens (no DB record — for admin mass-push).
+     */
+    public function sendToMultiple(array $tokens, string $title, string $body, array $data = []): void
+    {
+        foreach ($tokens as $token) {
+            try { $this->sendPush($token, $title, $body, $data); } catch (\Exception) {}
+        }
+    }
+
     // ── FCM v1 API ────────────────────────────────────────────────────────────
 
     private function sendPush(string $token, string $title, string $body, array $data): void

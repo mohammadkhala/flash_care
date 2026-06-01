@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../network/api_client.dart';
 import '../services/notification_service.dart';
+import '../widgets/whatsapp_fab.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -26,6 +27,7 @@ import '../../features/programs/presentation/pages/program_detail_page.dart';
 import '../../features/documents/presentation/pages/documents_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
 import '../../features/map/presentation/pages/map_page.dart';
+import '../../features/profile/presentation/pages/static_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -159,6 +161,14 @@ final appRouter = GoRouter(
       path: '/documents',
       builder: (_, __) => const DocumentsPage(),
     ),
+    GoRoute(
+      path: '/terms',
+      builder: (_, __) => const StaticPage(slug: 'terms'),
+    ),
+    GoRoute(
+      path: '/privacy',
+      builder: (_, __) => const StaticPage(slug: 'privacy'),
+    ),
   ],
 );
 
@@ -195,6 +205,8 @@ class _PatientShellState extends State<PatientShell> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: widget.child,
+    floatingActionButton: const WhatsAppFab(),
+    floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     bottomNavigationBar: NavigationBar(
       selectedIndex: _idx,
       onDestinationSelected: (i) {

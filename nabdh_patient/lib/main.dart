@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/app_settings_service.dart';
 
 // ─── WorkManager background task ─────────────────────────────────────────────
 // Must be a top-level function annotated with vm:entry-point
@@ -104,6 +106,9 @@ void main() async {
 
   // Initialise local notifications + polling
   await NotificationService.instance.init();
+
+  // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
+  unawaited(AppSettingsService.instance.init());
 
   // Register WorkManager for background polling (every 15 min, Wi-Fi/data required)
   await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);

@@ -28,7 +28,9 @@ import '../../features/assessments/presentation/pages/assessment_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
 import '../../features/goals/presentation/pages/goal_detail_page.dart';
+import '../../features/profile/presentation/pages/static_page.dart';
 import '../network/api_client.dart';
+import '../widgets/whatsapp_fab.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -170,6 +172,8 @@ final appRouter = GoRouter(
             );
           },
         ),
+        GoRoute(path: '/terms',   builder: (_, __) => const StaticPage(slug: 'terms')),
+        GoRoute(path: '/privacy', builder: (_, __) => const StaticPage(slug: 'privacy')),
       ],
     ),
   ],
@@ -210,6 +214,8 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.child,
+      floatingActionButton: const WhatsAppFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) {

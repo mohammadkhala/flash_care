@@ -259,6 +259,18 @@ class _ProfilePageState extends State<ProfilePage> {
               color: AppColors.warning,
               onTap: () {},
             ),
+            _LinkTile(
+              icon: Icons.description_outlined,
+              label: 'شروط الاستخدام',
+              color: AppColors.textSecondary,
+              onTap: () => context.push('/terms'),
+            ),
+            _LinkTile(
+              icon: Icons.privacy_tip_outlined,
+              label: 'سياسة الخصوصية',
+              color: AppColors.textSecondary,
+              onTap: () => context.push('/privacy'),
+            ),
             const SizedBox(height: 20),
             // Logout
             OutlinedButton.icon(

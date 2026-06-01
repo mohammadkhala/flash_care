@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Api\AgoraController;
+use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Patient\TherapistSearchController;
 use App\Http\Controllers\Shared\MessageController;
@@ -14,6 +15,10 @@ use App\Http\Controllers\Patient\AppointmentController as PatientAppointmentCont
 use App\Http\Controllers\Patient\HomeProgramController as PatientHomeProgramController;
 use App\Http\Controllers\Patient\DocumentController as PatientDocumentController;
 use Illuminate\Support\Facades\Route;
+
+// ─── Public (no auth) ─────────────────────────────────────────
+Route::get('app-settings', [PublicController::class, 'settings']);
+Route::get('pages/{slug}',  [PublicController::class, 'page']);
 
 // ─── Auth (Public) ────────────────────────────────────────────
 Route::prefix('auth')->group(function () {

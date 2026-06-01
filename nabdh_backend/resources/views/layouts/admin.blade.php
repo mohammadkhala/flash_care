@@ -80,6 +80,8 @@
                     ['route' => 'admin.appointments.index',   'icon' => '📅', 'label' => 'المواعيد'],
                     ['route' => 'admin.reels.index',          'icon' => '🎬', 'label' => 'الريلز'],
                     ['route' => 'admin.specializations.index','icon' => '🏷️', 'label' => 'التخصصات'],
+                    ['route' => 'admin.pages.index',          'icon' => '📄', 'label' => 'الصفحات'],
+                    ['route' => 'admin.settings.index',       'icon' => '⚙️', 'label' => 'الإعدادات'],
                 ];
             @endphp
 

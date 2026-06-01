@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin\AppointmentController;
+use App\Http\Controllers\Admin\AppSettingController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\PageController;
 use App\Http\Controllers\Admin\PatientController;
 use App\Http\Controllers\Admin\ReelController;
 use App\Http\Controllers\Admin\SpecializationController;
@@ -48,6 +50,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('specializations',                         [SpecializationController::class, 'store'])->name('specializations.store');
     Route::put('specializations/{specialization}',         [SpecializationController::class, 'update'])->name('specializations.update');
     Route::post('specializations/{specialization}/toggle', [SpecializationController::class, 'toggleActive'])->name('specializations.toggle');
+
+    // App Settings
+    Route::get('settings',         [AppSettingController::class, 'index'])->name('settings.index');
+    Route::put('settings',         [AppSettingController::class, 'update'])->name('settings.update');
+    Route::post('settings/push',   [AppSettingController::class, 'sendPush'])->name('settings.push');
+
+    // Pages (Terms & Privacy)
+    Route::get('pages',                   [PageController::class, 'index'])->name('pages.index');
+    Route::get('pages/{slug}/edit',       [PageController::class, 'edit'])->name('pages.edit');
+    Route::put('pages/{slug}',            [PageController::class, 'update'])->name('pages.update');
 });
 
 // Redirect root → admin panel

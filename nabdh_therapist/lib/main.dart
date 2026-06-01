@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/app_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,9 @@ void main() async {
   await NotificationService.instance.init();
   // Wire up navigation so notification taps can route correctly
   NotificationService.instance.setNavigator((route) => appRouter.push(route));
+
+  // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
+  unawaited(AppSettingsService.instance.init());
 
   // Load saved locale
   await LocaleService.instance.load();
