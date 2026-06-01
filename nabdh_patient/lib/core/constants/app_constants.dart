@@ -1,8 +1,8 @@
 class AppConstants {
   static const String appName = 'نبض';
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; // Android emulator
-  static const String baseUrl = 'http://192.168.1.3:8000/api'; // Physical device
-  // static const String baseUrl = 'https://api.nabdh.ps/api'; // Production
+  // static const String baseUrl = 'http://192.168.1.3:8000/api'; // Physical device
+  static const String baseUrl = 'https://doctor.baitpait.space/api'; // Production
 
   static const List<String> countryCodes = ['+970', '+972'];
   static const String defaultCountryCode = '+972';

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -91,7 +92,7 @@ class _TherapistListPageState extends State<TherapistListPage> {
       if (!mounted) return;
       final list = ((res.data['data'] ?? res.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
       final meta = res.data['meta'] as Map<String, dynamic>?;
-      final lastPage = (meta?['last_page'] as num?)?.toInt() ?? 1;
+      final lastPage = jsonInt(meta?['last_page'], 1);
       setState(() {
         if (reset) {
           _therapists = list;
@@ -234,8 +235,8 @@ class _TherapistListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = therapist['id'];
     final avatar = _resolveUrl(therapist['avatar'] as String?);
-    final rating = (therapist['rating_average'] as num?)?.toDouble() ?? 0.0;
-    final ratingCount = (therapist['rating_count'] as num?)?.toInt() ?? 0;
+    final rating = jsonDouble(therapist['rating_average']);
+    final ratingCount = jsonInt(therapist['rating_count']);
     final specs = (therapist['specializations'] as List?) ?? [];
     final price = therapist['online_session_price'] ?? therapist['in_person_session_price'];
     return GestureDetector(

@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:workmanager/workmanager.dart';
 import 'core/constants/app_constants.dart';
+import 'core/utils/json_utils.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
@@ -44,7 +45,7 @@ Future<void> _backgroundPoll() async {
 
     // Check unread count first (cheap call)
     final countRes = await dio.get('/notifications/unread-count');
-    final count = (countRes.data['count'] as num?)?.toInt() ?? 0;
+    final count = jsonInt(countRes.data['count']);
     if (count <= 0) return;
 
     // Fetch latest notifications
@@ -72,7 +73,7 @@ Future<void> _backgroundPoll() async {
       final payload = aptId != null ? 'appointment:$aptId' : null;
 
       await plugin.show(
-        (n['id'] as num).toInt(),
+        jsonInt(n['id']),
         n['title'] as String? ?? 'نبض',
         n['body']  as String? ?? '',
         const NotificationDetails(

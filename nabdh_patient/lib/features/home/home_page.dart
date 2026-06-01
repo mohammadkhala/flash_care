@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/json_utils.dart';
 import '../../core/services/notification_service.dart';
 
 String _resolveUrl(String? url) {
@@ -415,7 +416,7 @@ class _TherapistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = therapist['id'];
     final avatar = _resolveUrl(therapist['avatar'] as String?);
-    final rating = (therapist['rating_average'] as num?)?.toDouble() ?? 0.0;
+    final rating = jsonDouble(therapist['rating_average']);
     return GestureDetector(
       onTap: () => context.push('/therapists/$id'),
       child: Container(

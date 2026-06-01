@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../network/api_client.dart';
+import '../utils/json_utils.dart';
 
 // ─── Top-level background tap handler (must NOT be inside a class) ────────────
 @pragma('vm:entry-point')
@@ -117,7 +118,7 @@ class NotificationService {
 
       // 1. Fast unread-count check
       final countRes = await ApiClient.instance.get('/notifications/unread-count');
-      final count = (countRes.data['count'] as num?)?.toInt() ?? 0;
+      final count = jsonInt(countRes.data['count']);
       final prev  = _unreadCount.value;
       _unreadCount.value = count;
 
@@ -141,7 +142,7 @@ class NotificationService {
           final payload = aptId != null ? 'appointment:$aptId' : null;
 
           await _showNotification(
-            id:      (n['id'] as num).toInt(),
+            id:      jsonInt(n['id']),
             title:   n['title']  as String? ?? 'نبض',
             body:    n['body']   as String? ?? '',
             payload: payload,

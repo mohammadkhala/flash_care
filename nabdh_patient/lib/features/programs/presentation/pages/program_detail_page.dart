@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 class ProgramDetailPage extends StatefulWidget {
   final int id;
@@ -186,7 +187,7 @@ class _ExerciseCard extends StatelessWidget {
     final description = exercise['description'] as String? ?? '';
     final String? duration = exercise['duration'] as String? ??
       (exercise['duration_minutes'] != null ? '${exercise['duration_minutes']} دقيقة' : null);
-    final reps = (exercise['repetitions'] as num?)?.toInt() ?? (exercise['reps'] as num?)?.toInt();
+    final reps = jsonInt(exercise['repetitions'], jsonInt(exercise['reps']));
 
     return GestureDetector(
       onTap: onToggle,

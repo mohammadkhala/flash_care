@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 String _fix(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -85,20 +86,20 @@ class _TherapistDetailPageState extends State<TherapistDetailPage>
     final bio         = t['bio']      as String? ?? '';
     final city        = t['city']     as String? ?? '';
     final gender      = t['gender']   as String?;
-    final years       = (t['years_experience'] as num?)?.toInt() ?? 0;
+    final years       = jsonInt(t['years_experience']);
     final online      = t['accepts_online']    as bool? ?? false;
     final inPerson    = t['accepts_in_person'] as bool? ?? false;
-    final onlineP     = (t['online_session_price']    as num?)?.toDouble() ?? 0;
-    final inPersonP   = (t['in_person_session_price'] as num?)?.toDouble() ?? 0;
+    final onlineP     = jsonDouble(t['online_session_price']);
+    final inPersonP   = jsonDouble(t['in_person_session_price']);
     final specs       = (t['specializations'] as List?)?.cast<Map>() ?? [];
     final langs       = (t['languages']       as List?)?.cast<Map>() ?? [];
     final edus        = (t['educations']      as List?)?.cast<Map>() ?? [];
     final certs       = (t['certifications']  as List?)?.cast<Map>() ?? [];
     final reviews     = (t['reviews']         as List?)?.cast<Map>() ?? [];
-    final rating      = (_stats['rating_average'] as num?)?.toDouble() ?? 0;
-    final ratingCount = (_stats['rating_count']   as num?)?.toInt()    ?? 0;
-    final sessions    = (_stats['total_sessions'] as num?)?.toInt()    ?? 0;
-    final patients    = (_stats['total_patients'] as num?)?.toInt()    ?? 0;
+    final rating      = jsonDouble(_stats['rating_average']);
+    final ratingCount = jsonInt(_stats['rating_count']);
+    final sessions    = jsonInt(_stats['total_sessions']);
+    final patients    = jsonInt(_stats['total_patients']);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -418,11 +419,11 @@ class _StatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rating      = (stats['rating_average'] as num?)?.toDouble() ?? 0;
-    final ratingCount = (stats['rating_count']   as num?)?.toInt()    ?? 0;
-    final sessions    = (stats['total_sessions'] as num?)?.toInt()    ?? 0;
-    final patients    = (stats['total_patients'] as num?)?.toInt()    ?? 0;
-    final years       = (stats['years_experience'] as num?)?.toInt()  ?? 0;
+    final rating      = jsonDouble(stats['rating_average']);
+    final ratingCount = jsonInt(stats['rating_count']);
+    final sessions    = jsonInt(stats['total_sessions']);
+    final patients    = jsonInt(stats['total_patients']);
+    final years       = jsonInt(stats['years_experience']);
     final dist        = (stats['rating_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
     final monthly     = (stats['monthly_sessions']    as Map?)?.cast<String, dynamic>() ?? {};
 
@@ -467,7 +468,7 @@ class _StatsTab extends StatelessWidget {
               for (int star = 5; star >= 1; star--) ...[
                 _RatingBar(
                   star: star,
-                  count: (dist[star.toString()] as num?)?.toInt() ?? 0,
+                  count: jsonInt(dist[star.toString()]),
                   total: ratingCount,
                 ),
                 if (star > 1) const SizedBox(height: 10),
@@ -536,7 +537,7 @@ class _MonthlyChart extends StatelessWidget {
     final sorted = data.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     if (sorted.isEmpty) return const Center(child: Text('لا توجد بيانات'));
     final maxVal = sorted
-        .map((e) => (e.value as num).toDouble())
+        .map((e) => jsonDouble(e.value))
         .fold(0.0, (a, b) => a > b ? a : b);
     final maxY = (maxVal + 2).ceilToDouble();
 
@@ -579,7 +580,7 @@ class _MonthlyChart extends StatelessWidget {
       lineBarsData: [
         LineChartBarData(
           spots: sorted.asMap().entries.map((e) =>
-            FlSpot(e.key.toDouble(), (e.value.value as num).toDouble())).toList(),
+            FlSpot(e.key.toDouble(), jsonDouble(e.value.value))).toList(),
           isCurved: true,
           color: AppColors.primary,
           barWidth: 3,
@@ -655,7 +656,7 @@ class _ReviewsTab extends StatelessWidget {
         final patient = r['patient'] as Map?;
         final pName   = patient?['full_name'] as String?
             ?? r['patient_name'] as String? ?? 'مريض';
-        final rating  = (r['rating'] as num?)?.toInt() ?? 0;
+        final rating  = jsonInt(r['rating']);
         final comment = r['comment'] as String?;
         final date    = r['created_at'] as String?;
 
@@ -725,7 +726,7 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final id    = (t['id'] as num?)?.toInt() ?? 0;
+    final id    = jsonInt(t['id']);
     final name  = t['full_name'] as String? ?? '';
     final phone = (t['user'] as Map?)?['phone'] as String?;
 

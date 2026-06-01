@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/json_utils.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -110,7 +111,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   }
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    onTap: () => _markOne((n['id'] as num).toInt(), i),
+                    onTap: () => _markOne(jsonInt(n['id']), i),
                     tileColor: isRead ? null : AppColors.primary.withOpacity(0.03),
                     leading: Container(
                       width: 44, height: 44,

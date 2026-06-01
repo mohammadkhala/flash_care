@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -62,7 +63,7 @@ class _ReelsFeedPageState extends State<ReelsFeedPage> {
       if (!mounted) return;
       final list = ((res.data['data'] ?? res.data) as List?) ?? [];
       final meta = res.data['meta'] as Map<String, dynamic>?;
-      final lastPage = (meta?['last_page'] as num?)?.toInt() ?? 1;
+      final lastPage = jsonInt(meta?['last_page'], 1);
       setState(() {
         _reels.addAll(list.cast<Map<String, dynamic>>());
         _currentPage++;
@@ -120,7 +121,7 @@ class _ReelCardState extends State<_ReelCard> {
   void initState() {
     super.initState();
     _liked = widget.reel['liked_by_me'] == true;
-    _likesCount = (widget.reel['likes_count'] as num?)?.toInt() ?? 0;
+    _likesCount = jsonInt(widget.reel['likes_count']);
     _initVideo();
   }
 
@@ -161,7 +162,7 @@ class _ReelCardState extends State<_ReelCard> {
       if (!mounted) return;
       setState(() {
         _liked = res.data['liked'] == true;
-        _likesCount = (res.data['likes_count'] as num?)?.toInt() ?? _likesCount;
+        _likesCount = jsonInt(res.data['likes_count'], _likesCount);
       });
     } catch (_) {
       if (mounted) setState(() { _liked = !_liked; _likesCount += _liked ? 1 : -1; });
@@ -185,7 +186,7 @@ class _ReelCardState extends State<_ReelCard> {
   Widget build(BuildContext context) {
     final therapist = (widget.reel['therapist'] as Map<String, dynamic>?) ?? {};
     final avatar = _resolveUrl(therapist['avatar'] as String?);
-    final commentsCount = (widget.reel['comments_count'] as num?)?.toInt() ?? 0;
+    final commentsCount = jsonInt(widget.reel['comments_count']);
 
     return Stack(fit: StackFit.expand, children: [
       // Video

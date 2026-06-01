@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -122,7 +123,7 @@ class _ConvoTile extends StatelessWidget {
     final therapist = (convo['therapist'] as Map<String, dynamic>?) ?? {};
     final lastMsg = (convo['last_message'] as Map<String, dynamic>?) ?? {};
     final avatar = _resolveUrl(therapist['avatar'] as String?);
-    final unread = (convo['patient_unread'] as num?)?.toInt() ?? 0;
+    final unread = jsonInt(convo['patient_unread']);
     final lastContent = lastMsg['content'] as String? ?? '';
     final lastTime = lastMsg['created_at'] as String?;
     String? formattedTime;

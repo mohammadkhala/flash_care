@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/json_utils.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -45,7 +46,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _user = (futures[0].data['user'] as Map<String, dynamic>?);
         final apptMeta = futures[1].data['meta'] as Map?;
-        _appointmentsCount = (apptMeta?['total'] as num?)?.toInt() ?? 0;
+        _appointmentsCount = jsonInt(apptMeta?['total']);
         final programs = (futures[2].data as List?) ?? [];
         _programsCount = programs.length;
         _loading = false;
