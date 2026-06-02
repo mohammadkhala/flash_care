@@ -145,6 +145,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Appointments
         Route::get('appointments', [PatientAppointmentController::class, 'index']);
+        Route::get('appointments/{appointment}', [PatientAppointmentController::class, 'show']);
         Route::put('appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel']);
         Route::post('appointments/{appointment}/review', [PatientAppointmentController::class, 'submitReview']);
         Route::get('appointments/{appointment}/agora-token', [PatientAppointmentController::class, 'generateAgoraToken']);

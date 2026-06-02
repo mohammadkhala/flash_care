@@ -27,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _upcoming = [];
   List<Map<String, dynamic>> _therapists = [];
   List<Map<String, dynamic>> _reels = [];
+  List<Map<String, dynamic>> _goals = [];
   bool _loading = true;
   int _unread = 0;
   int? _mood; // 1-5
@@ -60,6 +61,7 @@ class _HomePageState extends State<HomePage> {
         ApiClient.instance.get('/therapists',
             queryParameters: {'sort': 'rating', 'per_page': 5}),
         ApiClient.instance.get('/reels', queryParameters: {'per_page': 3}),
+        ApiClient.instance.get('/patient/goals'),
       ]);
       if (!mounted) return;
       setState(() {
@@ -70,6 +72,9 @@ class _HomePageState extends State<HomePage> {
         _therapists = therapistsData.cast<Map<String, dynamic>>();
         final reelsData = (futures[3].data['data'] as List?) ?? [];
         _reels = reelsData.cast<Map<String, dynamic>>();
+        final goalsData = (futures[4].data as List?) ?? [];
+        _goals = goalsData.cast<Map<String, dynamic>>()
+            .where((g) => g['status'] == 'active').toList();
         _loading = false;
       });
     } catch (_) {
@@ -116,6 +121,8 @@ class _HomePageState extends State<HomePage> {
           else ...[
             SliverToBoxAdapter(child: _buildMoodTracker()),
             SliverToBoxAdapter(child: _buildUpcoming()),
+            if (_goals.isNotEmpty)
+              SliverToBoxAdapter(child: _buildGoalsSection()),
             SliverToBoxAdapter(child: _buildQuickActions()),
             SliverToBoxAdapter(child: _buildFeaturedTherapists()),
             SliverToBoxAdapter(child: _buildReelsPreview()),
@@ -453,6 +460,32 @@ class _TherapistCard extends StatelessWidget {
       ),
     );
   }
+
+  // ── Goals Section ────────────────────────────────────────────────────────────
+  Widget _buildGoalsSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('🎯', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('أهدافي العلاجية',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          ),
+          TextButton(
+            onPressed: () => context.push('/goals'),
+            child: const Text('عرض الكل',
+              style: TextStyle(fontSize: 13, color: AppColors.primary,
+                  fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        ...(_goals.take(3).map((g) => _HomeGoalItem(goal: g))),
+      ]),
+    );
+  }
 }
 
 class _ReelPreviewCard extends StatelessWidget {
@@ -500,6 +533,68 @@ class _ReelPreviewCard extends StatelessWidget {
             child: Icon(Icons.play_circle_filled_rounded, color: Colors.white70, size: 28)),
         ]),
       ),
+    );
+  }
+}
+
+// ── Home Goal Item (read-only, no edit) ──────────────────────────────────────
+class _HomeGoalItem extends StatelessWidget {
+  final Map<String, dynamic> goal;
+  const _HomeGoalItem({required this.goal});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = ((goal['current_progress'] as num?)?.toInt() ?? 0);
+    final title = goal['title'] as String? ?? '';
+    final effectiveDate = goal['effective_date'] ?? goal['target_date'] ?? '';
+    final dateStr = effectiveDate.toString().length > 10
+        ? effectiveDate.toString().substring(0, 10)
+        : effectiveDate.toString();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text('$progress%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 12,
+                  color: AppColors.primary)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          if (dateStr.isNotEmpty)
+            Text(dateStr,
+              style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress / 100,
+            backgroundColor: AppColors.border,
+            color: AppColors.primary,
+            minHeight: 8,
+          ),
+        ),
+      ]),
     );
   }
 }

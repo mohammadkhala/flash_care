@@ -29,6 +29,13 @@ class AppointmentController extends Controller
         return response()->json($query->paginate($request->per_page ?? 15));
     }
 
+    public function show(Request $request, Appointment $appointment): JsonResponse
+    {
+        abort_if($appointment->patient_id !== $request->user()->patient->id, 403);
+        $appointment->load(['therapist', 'clinic', 'review']);
+        return response()->json($appointment);
+    }
+
     public function cancel(Request $request, Appointment $appointment): JsonResponse
     {
         abort_if($appointment->patient_id !== $request->user()->patient->id, 403);

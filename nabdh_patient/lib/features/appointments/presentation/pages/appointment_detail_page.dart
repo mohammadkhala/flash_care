@@ -36,14 +36,10 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final res = await ApiClient.instance.get('/patient/appointments',
-        queryParameters: {'per_page': 100});
+      final res = await ApiClient.instance.get('/patient/appointments/${widget.id}');
       if (!mounted) return;
-      final list = ((res.data['data'] ?? res.data) as List?) ?? [];
-      final found = list.cast<Map<String, dynamic>>()
-        .where((a) => a['id'] == widget.id).toList();
       setState(() {
-        _appointment = found.isNotEmpty ? found.first : null;
+        _appointment = res.data as Map<String, dynamic>?;
         _loading = false;
       });
     } catch (_) {
