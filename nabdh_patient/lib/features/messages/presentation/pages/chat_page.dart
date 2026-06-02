@@ -95,11 +95,13 @@ class _ChatPageState extends State<ChatPage> {
       final list = r.data is List
           ? (r.data as List).cast<Map<String, dynamic>>()
           : ((r.data['data'] ?? r.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
-      setState(() { _msgs
-        ..clear()
-        ..addAll(list); // API returns newest-first; ListView reverse:true handles display
+      setState(() {
+        _msgs
+          ..clear()
+          ..addAll(list.reversed.toList()); // API returns newest-first → reverse to oldest-first
         _loading = false;
       });
+      _scrollBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -300,7 +302,6 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
-                    reverse: true, // newest message at bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(
