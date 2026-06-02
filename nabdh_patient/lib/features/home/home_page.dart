@@ -386,6 +386,32 @@ class _HomePageState extends State<HomePage> {
       ]),
     );
   }
+
+  // ── Goals Section ────────────────────────────────────────────────────────────
+  Widget _buildGoalsSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('🎯', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('أهدافي العلاجية',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          ),
+          TextButton(
+            onPressed: () => context.push('/goals'),
+            child: const Text('عرض الكل',
+              style: TextStyle(fontSize: 13, color: AppColors.primary,
+                  fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        ...(_goals.take(3).map((g) => _HomeGoalItem(goal: g))),
+      ]),
+    );
+  }
 }
 
 class _QuickAction extends StatelessWidget {
@@ -458,32 +484,6 @@ class _TherapistCard extends StatelessWidget {
           ]),
         ]),
       ),
-    );
-  }
-
-  // ── Goals Section ────────────────────────────────────────────────────────────
-  Widget _buildGoalsSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Text('🎯', style: TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text('أهدافي العلاجية',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
-          ),
-          TextButton(
-            onPressed: () => context.push('/goals'),
-            child: const Text('عرض الكل',
-              style: TextStyle(fontSize: 13, color: AppColors.primary,
-                  fontWeight: FontWeight.w700)),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        ...(_goals.take(3).map((g) => _HomeGoalItem(goal: g))),
-      ]),
     );
   }
 }
