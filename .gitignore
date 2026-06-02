@@ -9,13 +9,7 @@ nabdh_backend/bootstrap/cache/
 nabdh_backend/storage/app/firebase-credentials.json.json
 nabdh_backend/storage/app/firebase-credentials.json
 
-nabdh_admin/vendor/
-nabdh_admin/.env
-nabdh_admin/storage/app/public/
-nabdh_admin/storage/framework/cache/
-nabdh_admin/storage/framework/sessions/
-nabdh_admin/storage/framework/views/
-nabdh_admin/bootstrap/cache/
+nabdh_admin/
 
 # Flutter
 nabdh_patient/build/
