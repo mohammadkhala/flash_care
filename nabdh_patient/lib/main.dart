@@ -140,35 +140,34 @@ class NabdhPatientApp extends StatefulWidget {
 
 class _NabdhPatientAppState extends State<NabdhPatientApp> {
   @override
-  void initState() {
-    super.initState();
-    LocaleService.instance.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final locale = LocaleService.instance.locale;
-    // Hebrew is also RTL like Arabic
-    final isRtl = locale.languageCode == 'ar' || locale.languageCode == 'he';
-
-    return MaterialApp.router(
-      title: 'نبض',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
-      locale: locale,
-      supportedLocales: LocaleService.supportedLocales,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) => Directionality(
-        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-        child: child!,
-      ),
+    // ListenableBuilder listens to LocaleService and rebuilds MaterialApp.router.
+    // key: ValueKey(lang) forces GoRouter to fully reinitialise on locale change
+    // (otherwise GoRouter's internal navigator ignores the parent rebuild).
+    return ListenableBuilder(
+      listenable: LocaleService.instance,
+      builder: (_, __) {
+        final locale = LocaleService.instance.locale;
+        final isRtl  = locale.languageCode != 'en';
+        return MaterialApp.router(
+          key: ValueKey(locale.languageCode),
+          title: 'نبض',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          routerConfig: appRouter,
+          locale: locale,
+          supportedLocales: LocaleService.supportedLocales,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (ctx, child) => Directionality(
+            textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
+        );
+      },
     );
   }
 }

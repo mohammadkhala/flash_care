@@ -33,7 +33,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
 
   Future<void> _init() async {
     await _getLocation();
-    if (_myPosition != null) await _loadNearby();
+    await _loadNearby(); // Always load — uses Palestine center as fallback if no GPS
   }
 
   Future<void> _getLocation() async {
@@ -70,12 +70,14 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
   }
 
   Future<void> _loadNearby() async {
-    if (_myPosition == null) return;
     setState(() => _loading = true);
+    // Use real position if available, otherwise fallback to Palestine center
+    final lat = _myPosition?.latitude ?? _palestineCenter.latitude;
+    final lng = _myPosition?.longitude ?? _palestineCenter.longitude;
     try {
       final r = await ApiClient.instance.get('/therapists/nearby', queryParameters: {
-        'lat': _myPosition!.latitude,
-        'lng': _myPosition!.longitude,
+        'lat': lat,
+        'lng': lng,
         'radius': 50,
       });
       setState(() {
@@ -163,22 +165,61 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
       final lng = (t['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null) continue;
       final isSelected = _selected?['id'] == t['id'];
+      final name = (t['full_name'] as String? ?? '').split(' ').take(2).join(' ');
+      final markerColor = isSelected ? AppColors.accent : AppColors.primary;
+
       list.add(Marker(
         point: LatLng(lat, lng),
-        width: 44, height: 44,
+        width: 100, height: 70,
+        alignment: Alignment.bottomCenter,
         child: GestureDetector(
           onTap: () => setState(() => _selected = (_selected?['id'] == t['id']) ? null : t),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.accent : AppColors.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2.5),
-              boxShadow: [BoxShadow(
-                color: (isSelected ? AppColors.accent : AppColors.primary).withOpacity(0.4),
-                blurRadius: 8, spreadRadius: 1,
-              )],
-            ),
-            child: const Icon(Icons.medical_services_rounded, color: Colors.white, size: 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Name label
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: markerColor,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [BoxShadow(
+                    color: markerColor.withOpacity(0.35),
+                    blurRadius: 4, offset: const Offset(0, 2),
+                  )],
+                ),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Cairo',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Pin icon
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: markerColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [BoxShadow(
+                    color: markerColor.withOpacity(0.4),
+                    blurRadius: 8, spreadRadius: 1,
+                  )],
+                ),
+                child: Icon(
+                  isSelected ? Icons.medical_services_rounded : Icons.person_pin_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
           ),
         ),
       ));

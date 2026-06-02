@@ -45,7 +45,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_seen', true);
+    await prefs.setBool('onboarding_v2_seen', true);
     if (!mounted) return;
     context.go('/auth');
   }

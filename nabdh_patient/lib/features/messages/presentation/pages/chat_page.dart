@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -187,6 +188,7 @@ class _ChatPageState extends State<ChatPage> {
             _AttachOption(icon: Icons.videocam_rounded,    label: 'تسجيل فيديو',    color: AppColors.accent,  onTap: () { Navigator.pop(context); _pickVideo(ImageSource.camera); }),
             _AttachOption(icon: Icons.video_library_rounded,label: 'مكتبة الفيديو', color: AppColors.accent,  onTap: () { Navigator.pop(context); _pickVideo(ImageSource.gallery); }),
             _AttachOption(icon: Icons.attach_file_rounded, label: 'ملف',            color: AppColors.textSecondary, onTap: () { Navigator.pop(context); _pickFile(); }),
+            _AttachOption(icon: Icons.location_on_rounded, label: 'موقعي',          color: Colors.green, onTap: () { Navigator.pop(context); _sendLocation(); }),
           ]),
         ),
       ),
@@ -207,6 +209,36 @@ class _ChatPageState extends State<ChatPage> {
     final r = await FilePicker.platform.pickFiles();
     if (r != null && r.files.single.path != null) {
       await _sendMedia(File(r.files.single.path!), 'file');
+    }
+  }
+
+  // ── Send location ──────────────────────────────────────────────
+  Future<void> _sendLocation() async {
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+        if (perm == LocationPermission.denied) {
+          _showErr('لم يتم منح صلاحية الموقع');
+          return;
+        }
+      }
+      if (perm == LocationPermission.deniedForever) {
+        _showErr('صلاحية الموقع محظورة — افتح الإعدادات');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final content = '📍 موقعي: ${pos.latitude.toStringAsFixed(6)},${pos.longitude.toStringAsFixed(6)}';
+      await _doSend({
+        'content': content,
+        'type': 'location',
+        'latitude': pos.latitude,
+        'longitude': pos.longitude,
+      });
+    } catch (_) {
+      _showErr('تعذّر الحصول على الموقع');
     }
   }
 
@@ -403,6 +435,8 @@ class _MessageBubble extends StatelessWidget {
               _VideoContent(url: mediaUrl)
             else if ((type == 'file' || type == 'voice') && mediaUrl.isNotEmpty)
               _FileContent(url: mediaUrl, name: mediaName, isMe: isMe, isVoice: type == 'voice')
+            else if (type == 'location')
+              _LocationContent(content: content, isMe: isMe)
             else
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
@@ -536,6 +570,55 @@ class _FileContent extends StatelessWidget {
       ]),
     ),
   );
+}
+
+// ── Location content ───────────────────────────────────────────────────────
+class _LocationContent extends StatelessWidget {
+  final String content;
+  final bool isMe;
+  const _LocationContent({required this.content, required this.isMe});
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract lat,lng from content: "📍 موقعي: lat,lng"
+    final match = RegExp(r'([-\d.]+),([-\d.]+)').firstMatch(content);
+    final lat = match != null ? double.tryParse(match.group(1)!) : null;
+    final lng = match != null ? double.tryParse(match.group(2)!) : null;
+
+    return GestureDetector(
+      onTap: () async {
+        if (lat != null && lng != null) {
+          final uri = Uri.parse('https://maps.google.com/?q=$lat,$lng');
+          if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: isMe ? Colors.white24 : Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.location_on_rounded,
+                color: isMe ? Colors.white : Colors.green, size: 26),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('موقعي',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 13,
+                    color: isMe ? Colors.white : AppColors.textPrimary)),
+            Text('اضغط لفتح في الخريطة',
+                style: TextStyle(fontSize: 11,
+                    color: isMe ? Colors.white60 : Colors.green)),
+          ])),
+        ]),
+      ),
+    );
+  }
 }
 
 // ── Attach option tile ─────────────────────────────────────────────────────

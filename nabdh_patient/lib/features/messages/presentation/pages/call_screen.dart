@@ -7,13 +7,12 @@ import '../../../../core/services/agora_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
 /// Full-screen Agora RTC call screen.
-/// Supports audio-only and audio+video modes.
 class CallScreen extends StatefulWidget {
   final String channel;
-  final String appId;       // kept for route compatibility
+  final String appId;
   final bool   isVideo;
   final String partnerName;
-  final int    uid;         // kept for route compatibility
+  final int    uid;
 
   const CallScreen({
     required this.channel,
@@ -29,20 +28,26 @@ class CallScreen extends StatefulWidget {
 }
 
 class _CallScreenState extends State<CallScreen> {
-  RtcEngine?  _engine;
-  String?     _token;
+  RtcEngine? _engine;
+  String?    _token;
 
-  // State flags
-  bool _joining      = true;
-  bool _joined       = false;
-  bool _error        = false;
-  bool _mutedMic     = false;
-  bool _mutedSpeaker = false;
-  bool _cameraOff    = false;
-  bool _frontCamera  = true;
+  // ── State ──────────────────────────────────────────────────────────
+  bool _joining               = true;
+  bool _joined                = false;
 
-  int? _remoteUid;   // first peer who joins
-  int  _callSeconds  = 0;
+  // Separate permission vs connection errors
+  bool _permError             = false;
+  bool _permPermanentlyDenied = false;
+  bool _connectionError       = false;
+  String _connectionErrorMsg  = '';
+
+  bool _mutedMic              = false;
+  bool _mutedSpeaker          = false;
+  bool _cameraOff             = false;
+  bool _frontCamera           = true;
+
+  int? _remoteUid;
+  int  _callSeconds = 0;
 
   @override
   void initState() {
@@ -51,36 +56,76 @@ class _CallScreenState extends State<CallScreen> {
     _init();
   }
 
-  bool _permPermanentlyDenied = false;
-
+  // ── Init ───────────────────────────────────────────────────────────
   Future<void> _init() async {
-    // 1. Request permissions
+    if (!mounted) return;
+    setState(() {
+      _joining          = true;
+      _permError        = false;
+      _connectionError  = false;
+      _connectionErrorMsg = '';
+      _joined           = false;
+      _remoteUid        = null;
+      _callSeconds      = 0;
+    });
+
+    // 1. Check / request permissions
     final needed = widget.isVideo
         ? [Permission.microphone, Permission.camera]
         : [Permission.microphone];
 
-    // Check if permanently denied first
+    // Check current status without triggering dialog
     for (final p in needed) {
-      if (await p.isPermanentlyDenied) {
-        _permPermanentlyDenied = true;
-        if (mounted) setState(() { _joining = false; _error = true; });
+      final status = await p.status;
+      if (status.isPermanentlyDenied) {
+        if (mounted) setState(() {
+          _joining = false;
+          _permError = true;
+          _permPermanentlyDenied = true;
+        });
         return;
       }
     }
 
-    final statuses = await needed.request();
-    if (statuses.values.any((s) => !s.isGranted)) {
-      if (mounted) setState(() { _joining = false; _error = true; });
+    // Request if not granted
+    bool allGranted = true;
+    for (final p in needed) {
+      if (!(await p.status).isGranted) { allGranted = false; break; }
+    }
+
+    if (!allGranted) {
+      final statuses = await needed.request();
+      if (statuses.values.any((s) => !s.isGranted)) {
+        final anyPerm = statuses.values.any((s) => s.isPermanentlyDenied);
+        if (mounted) setState(() {
+          _joining = false;
+          _permError = true;
+          _permPermanentlyDenied = anyPerm;
+        });
+        return;
+      }
+    }
+
+    // 2. Fetch token (failure is non-fatal — join with empty token)
+    try {
+      _token = await AgoraService.instance.fetchToken(channel: widget.channel);
+    } catch (_) {
+      _token = null;
+    }
+
+    // 3. Create engine
+    try {
+      _engine = await AgoraService.instance.createEngine();
+    } catch (e) {
+      if (mounted) setState(() {
+        _joining = false;
+        _connectionError = true;
+        _connectionErrorMsg = e.toString();
+      });
       return;
     }
 
-    // 2. Fetch token
-    _token = await AgoraService.instance.fetchToken(channel: widget.channel);
-
-    // 3. Create engine
-    _engine = await AgoraService.instance.createEngine();
-
-    // 4. Register event callbacks
+    // 4. Register event handlers
     _engine!.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (connection, elapsed) {
         if (mounted) setState(() { _joining = false; _joined = true; });
@@ -94,7 +139,12 @@ class _CallScreenState extends State<CallScreen> {
         _hangup();
       },
       onError: (err, msg) {
-        if (mounted) setState(() { _joining = false; _error = true; });
+        // Agora error codes: 17 = token expired/invalid, others = network/config
+        if (mounted) setState(() {
+          _joining = false;
+          _connectionError = true;
+          _connectionErrorMsg = 'كود الخطأ: $err — $msg';
+        });
       },
     ));
 
@@ -107,21 +157,29 @@ class _CallScreenState extends State<CallScreen> {
     }
 
     // 6. Join channel
-    await _engine!.joinChannel(
-      token: _token ?? '',
-      channelId: widget.channel,
-      uid: 0,
-      options: ChannelMediaOptions(
-        autoSubscribeAudio: true,
-        autoSubscribeVideo: widget.isVideo,
-        publishMicrophoneTrack: true,
-        publishCameraTrack: widget.isVideo,
-        clientRoleType: ClientRoleType.clientRoleBroadcaster,
-      ),
-    );
+    try {
+      await _engine!.joinChannel(
+        token: _token ?? '',
+        channelId: widget.channel,
+        uid: 0,
+        options: ChannelMediaOptions(
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: widget.isVideo,
+          publishMicrophoneTrack: true,
+          publishCameraTrack: widget.isVideo,
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() {
+        _joining = false;
+        _connectionError = true;
+        _connectionErrorMsg = e.toString();
+      });
+    }
   }
 
-  // ── Timer ────────────────────────────────────────────────────────
+  // ── Timer ──────────────────────────────────────────────────────────
   void _startTimer() {
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted || !_joined) return;
@@ -136,7 +194,7 @@ class _CallScreenState extends State<CallScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  // ── Controls ─────────────────────────────────────────────────────
+  // ── Controls ───────────────────────────────────────────────────────
   Future<void> _toggleMic() async {
     _mutedMic = !_mutedMic;
     await _engine?.muteLocalAudioStream(_mutedMic);
@@ -175,110 +233,96 @@ class _CallScreenState extends State<CallScreen> {
     super.dispose();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_error) return _buildError();
-    if (_joining) return _buildConnecting();
+    if (_permError)       return _buildPermError();
+    if (_connectionError) return _buildConnectionError();
+    if (_joining)         return _buildConnecting();
     return widget.isVideo ? _buildVideoCall() : _buildAudioCall();
   }
 
-  // ── Video call UI ────────────────────────────────────────────────
-  Widget _buildVideoCall() {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(children: [
-        // Remote video (full screen)
-        if (_remoteUid != null)
-          SizedBox.expand(
-            child: AgoraVideoView(
-              controller: VideoViewController.remote(
-                rtcEngine: _engine!,
-                canvas: VideoCanvas(uid: _remoteUid),
-                connection: RtcConnection(channelId: widget.channel),
-              ),
+  // ── Video call UI ──────────────────────────────────────────────────
+  Widget _buildVideoCall() => Scaffold(
+    backgroundColor: Colors.black,
+    body: Stack(children: [
+      if (_remoteUid != null)
+        SizedBox.expand(
+          child: AgoraVideoView(
+            controller: VideoViewController.remote(
+              rtcEngine: _engine!,
+              canvas: VideoCanvas(uid: _remoteUid),
+              connection: RtcConnection(channelId: widget.channel),
             ),
-          )
-        else
-          _buildWaitingOverlay(),
-
-        // Local video (picture-in-picture)
-        if (!_cameraOff)
-          Positioned(
-            top: 60, right: 16,
-            width: 100, height: 150,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: AgoraVideoView(
-                controller: VideoViewController(
-                  rtcEngine: _engine!,
-                  canvas: const VideoCanvas(uid: 0),
-                ),
+          ),
+        )
+      else
+        _buildWaitingOverlay(),
+      if (!_cameraOff)
+        Positioned(
+          top: 60, right: 16,
+          width: 100, height: 150,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AgoraVideoView(
+              controller: VideoViewController(
+                rtcEngine: _engine!,
+                canvas: const VideoCanvas(uid: 0),
               ),
             ),
           ),
-
-        // Top bar
-        _buildTopBar(),
-
-        // Bottom controls
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: _buildControls(isVideo: true),
         ),
-      ]),
-    );
-  }
+      _buildTopBar(),
+      Positioned(
+        bottom: 0, left: 0, right: 0,
+        child: _buildControls(isVideo: true),
+      ),
+    ]),
+  );
 
-  // ── Audio call UI ────────────────────────────────────────────────
-  Widget _buildAudioCall() {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A1628),
-      body: Stack(children: [
-        Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Avatar
-            Container(
-              width: 100, height: 100,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryLight],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(
-                  color: AppColors.primary.withOpacity(0.4),
-                  blurRadius: 24, spreadRadius: 4)],
-              ),
-              child: Center(child: Text(
-                widget.partnerName.isNotEmpty ? widget.partnerName[0] : '؟',
-                style: const TextStyle(color: Colors.white,
-                    fontSize: 40, fontWeight: FontWeight.w700),
-              )),
+  // ── Audio call UI ──────────────────────────────────────────────────
+  Widget _buildAudioCall() => Scaffold(
+    backgroundColor: const Color(0xFF0A1628),
+    body: Stack(children: [
+      Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 100, height: 100,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryLight]),
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(
+                color: AppColors.primary.withOpacity(0.4),
+                blurRadius: 24, spreadRadius: 4)],
             ),
-            const SizedBox(height: 20),
-            Text(widget.partnerName,
-                style: const TextStyle(color: Colors.white,
-                    fontSize: 22, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text(
-              _remoteUid != null ? _duration : 'جارٍ الاتصال...',
-              style: TextStyle(
-                color: _remoteUid != null ? AppColors.success : Colors.white54,
-                fontSize: 15,
-              ),
+            child: Center(child: Text(
+              widget.partnerName.isNotEmpty ? widget.partnerName[0] : '؟',
+              style: const TextStyle(color: Colors.white,
+                  fontSize: 40, fontWeight: FontWeight.w700),
+            )),
+          ),
+          const SizedBox(height: 20),
+          Text(widget.partnerName,
+              style: const TextStyle(color: Colors.white,
+                  fontSize: 22, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(
+            _remoteUid != null ? _duration : 'جارٍ الاتصال...',
+            style: TextStyle(
+              color: _remoteUid != null ? AppColors.success : Colors.white54,
+              fontSize: 15,
             ),
-          ]),
-        ),
-
-        _buildTopBar(),
-
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: _buildControls(isVideo: false),
-        ),
-      ]),
-    );
-  }
+          ),
+        ]),
+      ),
+      _buildTopBar(),
+      Positioned(
+        bottom: 0, left: 0, right: 0,
+        child: _buildControls(isVideo: false),
+      ),
+    ]),
+  );
 
   Widget _buildTopBar() => SafeArea(
     child: Padding(
@@ -308,15 +352,12 @@ class _CallScreenState extends State<CallScreen> {
       ),
     ),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-      // Mute mic
       _CtrlBtn(
         icon: _mutedMic ? Icons.mic_off_rounded : Icons.mic_rounded,
         label: _mutedMic ? 'كتم' : 'ميكروفون',
         onTap: _toggleMic,
         active: !_mutedMic,
       ),
-
-      // Speaker / camera off
       if (!isVideo)
         _CtrlBtn(
           icon: _mutedSpeaker ? Icons.volume_off_rounded : Icons.volume_up_rounded,
@@ -327,20 +368,16 @@ class _CallScreenState extends State<CallScreen> {
       else
         _CtrlBtn(
           icon: _cameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-          label: _cameraOff ? 'كاميرا' : 'كاميرا',
+          label: 'كاميرا',
           onTap: _toggleCamera,
           active: !_cameraOff,
         ),
-
-      // Hang up
       _CtrlBtn(
         icon: Icons.call_end_rounded,
         label: 'إنهاء',
         onTap: _hangup,
         isEndCall: true,
       ),
-
-      // Flip camera (video only)
       if (isVideo)
         _CtrlBtn(
           icon: Icons.flip_camera_ios_rounded,
@@ -376,7 +413,8 @@ class _CallScreenState extends State<CallScreen> {
     ),
   );
 
-  Widget _buildError() => Scaffold(
+  // ── Permission error ───────────────────────────────────────────────
+  Widget _buildPermError() => Scaffold(
     backgroundColor: const Color(0xFF0A1628),
     body: Center(
       child: Padding(
@@ -384,33 +422,94 @@ class _CallScreenState extends State<CallScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.mic_off_rounded, color: Colors.redAccent, size: 64),
           const SizedBox(height: 20),
-          const Text('تعذّر الاتصال',
+          const Text('إذن الميكروفون مطلوب',
               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           Text(
             _permPermanentlyDenied
-                ? 'تم رفض أذونات الميكروفون والكاميرا بشكل دائم.\nافتح إعدادات الهاتف لمنح الأذونات.'
-                : 'يحتاج التطبيق إذن الميكروفون${widget.isVideo ? " والكاميرا" : ""} لإجراء المكالمة.',
+                ? 'تم رفض أذونات الميكروفون والكاميرا بشكل دائم.\nافتح إعدادات التطبيق لمنح الأذونات يدوياً.'
+                : 'يرجى السماح للتطبيق باستخدام الميكروفون${widget.isVideo ? " والكاميرا" : ""}.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white54, fontSize: 14, height: 1.6),
           ),
           const SizedBox(height: 28),
-          if (_permPermanentlyDenied) ...[
-            ElevatedButton.icon(
-              onPressed: () async {
-                await openAppSettings();
-              },
-              icon: const Icon(Icons.settings_rounded),
-              label: const Text('فتح إعدادات التطبيق'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(220, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ElevatedButton.icon(
+            onPressed: () async { await openAppSettings(); },
+            icon: const Icon(Icons.settings_rounded),
+            label: const Text('فتح إعدادات التطبيق'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(220, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _init,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            label: const Text('إعادة المحاولة', style: TextStyle(color: Colors.white70)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white24),
+              minimumSize: const Size(220, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white38),
+            label: const Text('رجوع', style: TextStyle(color: Colors.white38)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white12),
+              minimumSize: const Size(220, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ]),
+      ),
+    ),
+  );
+
+  // ── Connection error ───────────────────────────────────────────────
+  Widget _buildConnectionError() => Scaffold(
+    backgroundColor: const Color(0xFF0A1628),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.wifi_off_rounded, color: Colors.orangeAccent, size: 64),
+          const SizedBox(height: 20),
+          const Text('تعذّر الاتصال بالمكالمة',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          const Text(
+            'تحقق من اتصالك بالإنترنت وحاول مجدداً.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 14, height: 1.6),
+          ),
+          if (_connectionErrorMsg.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _connectionErrorMsg,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white24, fontSize: 11),
               ),
             ),
-            const SizedBox(height: 12),
-          ],
+          const SizedBox(height: 28),
+          ElevatedButton.icon(
+            onPressed: _init,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('إعادة المحاولة'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(220, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
@@ -427,7 +526,7 @@ class _CallScreenState extends State<CallScreen> {
   );
 }
 
-// ── Control button widget ─────────────────────────────────────────
+// ── Control button ─────────────────────────────────────────────────
 class _CtrlBtn extends StatelessWidget {
   final IconData icon;
   final String   label;

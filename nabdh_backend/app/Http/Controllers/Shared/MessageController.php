@@ -60,7 +60,7 @@ class MessageController extends Controller
     {
         $request->validate([
             'content' => 'nullable|string|max:2000',
-            'type' => 'required|in:text,image,file,voice,video',
+            'type' => 'required|in:text,image,file,voice,video,location',
             'file' => 'nullable|file|max:51200',
         ]);
 
@@ -107,7 +107,11 @@ class MessageController extends Controller
         $this->fcmService->send(
             $recipient,
             "رسالة من {$senderName}",
-            $request->type === 'text' ? $request->content : '📎 مرفق',
+            match($request->type) {
+                'text'     => $request->content,
+                'location' => '📍 شارك موقعه',
+                default    => '📎 مرفق',
+            },
             ['conversation_id' => (string) $conversation->id],
             'new_message'
         );

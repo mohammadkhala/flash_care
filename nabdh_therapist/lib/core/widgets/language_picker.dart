@@ -21,7 +21,10 @@ class LanguagePicker extends StatelessWidget {
             final isSelected = code == current;
 
             return InkWell(
-              onTap: () => LocaleService.instance.setLocale(locale),
+              onTap: () {
+                LocaleService.instance.setLocale(locale);
+                Navigator.of(context).pop();
+              },
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4),

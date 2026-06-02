@@ -42,35 +42,31 @@ class NabdhTherapistApp extends StatefulWidget {
 
 class _NabdhTherapistAppState extends State<NabdhTherapistApp> {
   @override
-  void initState() {
-    super.initState();
-    LocaleService.instance.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final locale = LocaleService.instance.locale;
-    // Hebrew is also RTL like Arabic
-    final isRtl = locale.languageCode == 'ar' || locale.languageCode == 'he';
-
-    return MaterialApp.router(
-      title: 'نبض - الأخصائي',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
-      locale: locale,
-      supportedLocales: LocaleService.supportedLocales,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) => Directionality(
-        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-        child: child!,
-      ),
+    return ListenableBuilder(
+      listenable: LocaleService.instance,
+      builder: (_, __) {
+        final locale = LocaleService.instance.locale;
+        final isRtl  = locale.languageCode != 'en';
+        return MaterialApp.router(
+          key: ValueKey(locale.languageCode),
+          title: 'نبض - الأخصائي',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          routerConfig: appRouter,
+          locale: locale,
+          supportedLocales: LocaleService.supportedLocales,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (ctx, child) => Directionality(
+            textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
+        );
+      },
     );
   }
 }

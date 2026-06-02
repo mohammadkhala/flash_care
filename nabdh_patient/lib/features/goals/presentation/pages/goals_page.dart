@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -180,6 +181,285 @@ class _GoalCard extends StatelessWidget {
   }
 }
 
+// ─── Progress Chart ──────────────────────────────────────────────────────────
+class _ProgressChart extends StatelessWidget {
+  final List<Map<String, dynamic>> logs;
+  final int progress;
+  final Color color;
+
+  const _ProgressChart({
+    required this.logs,
+    required this.progress,
+    required this.color,
+  });
+
+  // Arabic month names
+  static const _arMonths = [
+    '', 'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  ];
+
+  String _arDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')} ${_arMonths[d.month]}';
+
+  @override
+  Widget build(BuildContext context) {
+    // ── Build (timestamp, progress) pairs ──────────────────────────
+    // Sort logs oldest→newest
+    final sortedLogs = [...logs]..sort((a, b) {
+        final da = DateTime.tryParse(a['created_at'] as String? ?? '') ?? DateTime(2000);
+        final db = DateTime.tryParse(b['created_at'] as String? ?? '') ?? DateTime(2000);
+        return da.compareTo(db);
+      });
+
+    // Collect data points: start with (goalCreatedAt or first log, 0), then each log
+    final List<(DateTime date, double pct)> points = [];
+
+    // First point: before the earliest log = 0%
+    final firstLogDate = sortedLogs.isNotEmpty
+        ? (DateTime.tryParse(sortedLogs.first['created_at'] as String? ?? '') ?? DateTime.now())
+        : DateTime.now();
+    points.add((firstLogDate.subtract(const Duration(days: 1)), 0));
+
+    for (final log in sortedLogs) {
+      final d = DateTime.tryParse(log['created_at'] as String? ?? '');
+      final p = ((log['progress'] as num?)?.toDouble() ?? 0);
+      if (d != null) points.add((d, p));
+    }
+
+    // Last point: today = current progress
+    if (points.length < 2 || points.last.$2 != progress.toDouble()) {
+      points.add((DateTime.now(), progress.toDouble()));
+    }
+
+    if (points.isEmpty) return const SizedBox.shrink();
+
+    // Convert dates to numeric X axis (days since first point)
+    final origin = points.first.$1;
+    final spots = points.map((p) {
+      final x = p.$1.difference(origin).inHours / 24.0;
+      return FlSpot(x, p.$2);
+    }).toList();
+
+    final maxX = spots.last.x;
+    final minY = 0.0;
+    final maxY = 100.0;
+
+    // Choose visible X-axis labels (at most 5)
+    final labelIndices = <int>[];
+    if (points.length <= 5) {
+      labelIndices.addAll(List.generate(points.length, (i) => i));
+    } else {
+      final step = (points.length - 1) / 4;
+      for (int i = 0; i < 5; i++) {
+        labelIndices.add((i * step).round().clamp(0, points.length - 1));
+      }
+    }
+    final labelX = {for (final i in labelIndices) spots[i].x: points[i].$1};
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // ── Header ────────────────────────────────────────────────────
+      Row(children: [
+        const Text('مسار التقدم',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text('$progress%',
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w800, color: color)),
+        ),
+      ]),
+      const SizedBox(height: 12),
+
+      // ── Chart ─────────────────────────────────────────────────────
+      Container(
+        height: 200,
+        padding: const EdgeInsets.only(top: 12, right: 8, bottom: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.08)),
+        ),
+        child: LineChart(
+          duration: const Duration(milliseconds: 600),
+          LineChartData(
+            clipData: const FlClipData.all(),
+            minX: 0, maxX: maxX == 0 ? 1 : maxX,
+            minY: minY, maxY: maxY,
+
+            // ── Grid ────────────────────────────────────────────────
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: true,
+              drawHorizontalLine: true,
+              horizontalInterval: 25,
+              verticalInterval: maxX == 0 ? 1 : maxX / 4,
+              getDrawingHorizontalLine: (_) => FlLine(
+                color: color.withOpacity(0.07),
+                strokeWidth: 1,
+                dashArray: [4, 4],
+              ),
+              getDrawingVerticalLine: (_) => FlLine(
+                color: color.withOpacity(0.04),
+                strokeWidth: 1,
+              ),
+            ),
+
+            borderData: FlBorderData(
+              show: true,
+              border: Border(
+                bottom: BorderSide(color: color.withOpacity(0.15), width: 1),
+                left:   BorderSide(color: color.withOpacity(0.15), width: 1),
+              ),
+            ),
+
+            // ── Axes ────────────────────────────────────────────────
+            titlesData: FlTitlesData(
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+
+              // X-axis: dates
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 32,
+                  interval: maxX == 0 ? 1 : maxX / 4,
+                  getTitlesWidget: (x, meta) {
+                    // Find the closest label
+                    DateTime? dt;
+                    double bestDist = double.infinity;
+                    for (final entry in labelX.entries) {
+                      final dist = (entry.key - x).abs();
+                      if (dist < bestDist) {
+                        bestDist = dist;
+                        dt = entry.value;
+                      }
+                    }
+                    if (dt == null || bestDist > 0.5) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _arDate(dt),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: color.withOpacity(0.7),
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Cairo',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Y-axis: percentages
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 38,
+                  interval: 25,
+                  getTitlesWidget: (v, _) => Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      '${v.toInt()}%',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: color.withOpacity(0.6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Tooltip ─────────────────────────────────────────────
+            lineTouchData: LineTouchData(
+              handleBuiltInTouches: true,
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (_) => color.withOpacity(0.9),
+                tooltipRoundedRadius: 10,
+                getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
+                  final xi = s.x;
+                  // Find closest real point date
+                  DateTime? dt;
+                  double bestDist = double.infinity;
+                  for (final p in points) {
+                    final px = p.$1.difference(origin).inHours / 24.0;
+                    final dist = (px - xi).abs();
+                    if (dist < bestDist) { bestDist = dist; dt = p.$1; }
+                  }
+                  final dateStr = dt != null ? _arDate(dt) : '';
+                  return LineTooltipItem(
+                    '${s.y.toInt()}%\n',
+                    const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                    children: [
+                      TextSpan(
+                        text: dateStr,
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 10, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // ── Line data ───────────────────────────────────────────
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: true,
+                curveSmoothness: 0.3,
+                color: color,
+                barWidth: 2.5,
+                isStrokeCapRound: true,
+                preventCurveOverShooting: true,
+
+                // Dots: show only on data points, larger on last
+                dotData: FlDotData(
+                  show: true,
+                  getDotPainter: (spot, pct, bar, idx) {
+                    final isLast = idx == spots.length - 1;
+                    return FlDotCirclePainter(
+                      radius: isLast ? 5.5 : 3.5,
+                      color: isLast ? color : Colors.white,
+                      strokeWidth: 2,
+                      strokeColor: color,
+                    );
+                  },
+                ),
+
+                // Gradient fill below line — exactly like the reference image
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      color.withOpacity(0.28),
+                      color.withOpacity(0.08),
+                      color.withOpacity(0.01),
+                    ],
+                    stops: const [0.0, 0.6, 1.0],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
 // ─── Detail Bottom Sheet ─────────────────────────────────────────────────────
 class _GoalDetailSheet extends StatelessWidget {
   final Map<String, dynamic> goal;
@@ -255,53 +535,9 @@ class _GoalDetailSheet extends StatelessWidget {
                 )),
                 const SizedBox(height: 24),
 
-                // Chart
-                if (logs.length >= 2) ...[
-                  const Text('مسار التقدم',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 150,
-                    child: LineChart(LineChartData(
-                      gridData: const FlGridData(show: false),
-                      borderData: FlBorderData(show: false),
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        leftTitles: AxisTitles(sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 32,
-                          getTitlesWidget: (v, _) => Text('${v.toInt()}%',
-                              style: const TextStyle(fontSize: 9)),
-                        )),
-                      ),
-                      minY: 0, maxY: 100,
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: [
-                            const FlSpot(0, 0),
-                            ...logs.reversed.toList().asMap().entries.map(
-                              (e) => FlSpot(
-                                (e.key + 1).toDouble(),
-                                ((e.value['progress'] as num?)?.toDouble() ?? 0),
-                              ),
-                            ),
-                          ],
-                          isCurved: true,
-                          color: color,
-                          barWidth: 3,
-                          dotData: const FlDotData(show: true),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: color.withOpacity(0.1),
-                          ),
-                        ),
-                      ],
-                    )),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                // ── Progress Chart ──────────────────────────────────────
+                _ProgressChart(logs: logs, progress: progress, color: color),
+                const SizedBox(height: 20),
 
                 // Log history
                 if (logs.isNotEmpty) ...[

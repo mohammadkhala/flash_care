@@ -45,7 +45,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     if (!mounted) return;
     final token  = await ApiClient.getToken();
     final prefs  = await SharedPreferences.getInstance();
-    final sawOnb = prefs.getBool('onboarding_seen') ?? false;
+    final sawOnb = prefs.getBool('onboarding_v2_seen') ?? false;
     if (!mounted) return;
     if (token != null) {
       context.go('/home');
