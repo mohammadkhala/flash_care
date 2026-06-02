@@ -29,8 +29,8 @@ class AccessToken2
     {
         $this->appId   = $appId;
         $this->appCert = $appCert;
-        $this->expire  = $expireSeconds;
         $this->issueTs = time();
+        $this->expire  = $this->issueTs + $expireSeconds; // absolute Unix timestamp
         $this->salt    = random_int(1, 99_999_999);
     }
 
