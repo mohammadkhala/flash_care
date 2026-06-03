@@ -108,11 +108,19 @@ class _VideoCallPageState extends State<VideoCallPage> {
       }
     }
 
-    // 2. Fetch token (failure is non-fatal)
+    // 2. Fetch token from backend — required for secure Agora projects
     try {
       _token = await AgoraService.instance.fetchToken(channel: widget.channel);
     } catch (_) {
       _token = null;
+    }
+    if (_token == null || _token!.isEmpty) {
+      if (mounted) setState(() {
+        _joining = false;
+        _connectionError = true;
+        _connectionErrorMsg = 'تعذّر الحصول على رمز الاتصال — تأكد أن هاتفك على نفس شبكة الـ WiFi الخاصة بالخادم';
+      });
+      return;
     }
 
     // 3. Create engine
