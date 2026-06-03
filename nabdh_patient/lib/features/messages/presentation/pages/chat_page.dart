@@ -92,24 +92,29 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final r = await ApiClient.instance.get('/messages/conversations/$_convoId');
       if (!mounted) return;
-      // API returns newest-first. Keep that order — ListView uses reverse:true
-      // so index-0 (newest) appears at the bottom automatically.
-      final list = r.data is List
+      final raw = r.data is List
           ? (r.data as List).cast<Map<String, dynamic>>()
           : ((r.data['data'] ?? r.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
+      // API returns newest-first → reverse → oldest-first so list renders top=old bottom=new
       setState(() {
-        _msgs..clear()..addAll(list);
+        _msgs..clear()..addAll(raw.reversed.toList());
         _loading = false;
       });
-      // With reverse:true, position 0 = bottom (newest). Jump there after every load.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          _scroll.jumpTo(0);
-        }
-      });
+      _scrollToBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Scroll to the bottom of the chat after list is fully laid out.
+  /// Double addPostFrameCallback: frame-1 = setState done, frame-2 = ListView layout done.
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scroll.hasClients) return;
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      });
+    });
   }
 
   // ── Send text ──────────────────────────────────────────────────
@@ -295,7 +300,6 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
-                    reverse: true,   // index-0 = newest = bottom; no manual scroll needed
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(

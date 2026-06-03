@@ -97,32 +97,24 @@ class _ChatPageState extends State<ChatPage> {
           ? r.data as List
           : ((r.data['data'] ?? r.data) as List? ?? []);
       final list = raw.cast<Map<String, dynamic>>();
-      // API returns newest-first. Keep that order — ListView uses reverse:true
-      // so index-0 (newest) appears at the bottom automatically.
+      // API returns newest-first → reverse → oldest-first (top=old, bottom=new)
       setState(() {
-        _msgs..clear()..addAll(list);
+        _msgs..clear()..addAll(list.reversed.toList());
         _loading = false;
       });
-      // With reverse:true, position 0 = bottom (newest). Jump there after every load.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          _scroll.jumpTo(0);
-        }
-      });
+      _scrollToBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _scrollBottom() {
+  /// Double addPostFrameCallback: frame-1 = setState done, frame-2 = ListView layout done.
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOut,
-        );
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scroll.hasClients) return;
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      });
     });
   }
 
@@ -294,7 +286,6 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
-                    reverse: true,   // index-0 = newest = bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(
