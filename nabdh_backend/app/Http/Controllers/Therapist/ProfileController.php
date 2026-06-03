@@ -119,8 +119,9 @@ class ProfileController extends Controller
     {
         $therapist = $request->user()->therapist;
 
-        $unread = \App\Models\PushNotification::where('user_id', $request->user()->id)
-            ->whereNull('read_at')->count();
+        // Count unread chat messages (therapist_unread from conversations)
+        $unread = \App\Models\Conversation::where('therapist_id', $therapist->id)
+            ->sum('therapist_unread');
 
         $total      = $therapist->appointments()->count();
         $completed  = $therapist->appointments()->where('status', 'completed')->count();

@@ -132,11 +132,26 @@ class _SummaryCard extends StatelessWidget {
       Text(_todayDate(), style: const TextStyle(color: Colors.white, fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w600)),
       const SizedBox(height: 20),
       Row(children: [
-        _StatItem(value: loading ? '-' : '${stats['today_appointments'] ?? 0}', label: 'مواعيد اليوم', icon: Icons.calendar_today),
+        _StatItem(
+          value: loading ? '-' : '${stats['today_appointments'] ?? 0}',
+          label: 'مواعيد اليوم',
+          icon: Icons.calendar_today,
+          onTap: () => context.go('/appointments'),
+        ),
         const SizedBox(width: 24),
-        _StatItem(value: loading ? '-' : '${stats['pending_appointments'] ?? 0}', label: 'في الانتظار', icon: Icons.pending_outlined),
+        _StatItem(
+          value: loading ? '-' : '${stats['pending_appointments'] ?? 0}',
+          label: 'في الانتظار',
+          icon: Icons.pending_outlined,
+          onTap: () => context.go('/appointments'),
+        ),
         const SizedBox(width: 24),
-        _StatItem(value: loading ? '-' : '${stats['unread_messages'] ?? 0}', label: 'رسائل جديدة', icon: Icons.chat_bubble_outline),
+        _StatItem(
+          value: loading ? '-' : '${stats['unread_messages'] ?? 0}',
+          label: 'رسائل جديدة',
+          icon: Icons.chat_bubble_outline,
+          onTap: () => context.go('/messages'),
+        ),
       ]),
     ]),
   );
@@ -152,15 +167,19 @@ class _SummaryCard extends StatelessWidget {
 class _StatItem extends StatelessWidget {
   final String value, label;
   final IconData icon;
-  const _StatItem({required this.value, required this.label, required this.icon});
+  final VoidCallback? onTap;
+  const _StatItem({required this.value, required this.label, required this.icon, this.onTap});
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Icon(icon, color: Colors.white70, size: 20),
-    const SizedBox(height: 4),
-    Text(value, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
-    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Cairo')),
-  ]);
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Column(children: [
+      Icon(icon, color: Colors.white70, size: 20),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Cairo')),
+    ]),
+  );
 }
 
 class _QuickActions extends StatelessWidget {
