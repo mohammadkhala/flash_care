@@ -60,12 +60,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   // ── Init ───────────────────────────────────────────────────────────
   Future<void> _init() async {
-    // Always clean up any stale engine FIRST to avoid ERR_JOIN_CHANNEL_REJECTED (-17)
-    if (_engine != null) {
-      try { await _engine!.leaveChannel(); } catch (_) {}
-      try { await _engine!.release();      } catch (_) {}
-      _engine = null;
-    }
+    // Leave any previous channel first (safe no-op if not joined)
+    await AgoraService.instance.leaveChannel();
 
     if (!mounted) return;
     setState(() {
@@ -127,9 +123,9 @@ class _VideoCallPageState extends State<VideoCallPage> {
       return;
     }
 
-    // 3. Create engine
+    // 3. Get the shared engine (created once, reused across calls)
     try {
-      _engine = await AgoraService.instance.createEngine();
+      _engine = await AgoraService.instance.getEngine();
     } catch (e) {
       if (mounted) setState(() {
         _joining = false;
@@ -277,16 +273,17 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   Future<void> _hangup() async {
-    await _engine?.leaveChannel();
-    await _engine?.release();
+    await AgoraService.instance.leaveChannel();
     _engine = null;
     if (mounted) context.pop();
   }
 
   @override
   void dispose() {
-    _engine?.leaveChannel();
-    _engine?.release();
+    // Leave channel without await (dispose is sync).
+    // Engine stays alive as singleton — not released between calls.
+    AgoraService.instance.leaveChannel();
+    _engine = null;
     super.dispose();
   }
 

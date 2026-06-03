@@ -97,12 +97,16 @@ class _ChatPageState extends State<ChatPage> {
           : ((r.data['data'] ?? r.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
 
       // API newest-first; with reverse:true index 0 = newest = at bottom.
-      // On silent (timer) poll: only rebuild if count changed OR newest ID changed
-      // — prevents visual flicker every 8 s when nothing new arrived.
       if (silent && _msgs.isNotEmpty && raw.isNotEmpty) {
-        final newId  = raw.first['id'];
-        final curId  = _msgs.first['id'];
-        if (newId == curId && raw.length == _msgs.length) return; // nothing new
+        final sameTop = raw.first['id'].toString() == _msgs.first['id'].toString();
+        if (sameTop && raw.length == _msgs.length) return; // nothing new
+
+        if (raw.length > _msgs.length && sameTop == false) {
+          // Incremental insert: prepend only the new messages (no clear → no jump)
+          final newCount = raw.length - _msgs.length;
+          setState(() => _msgs.insertAll(0, raw.take(newCount).toList()));
+          return;
+        }
       }
       setState(() {
         _msgs..clear()..addAll(raw);
