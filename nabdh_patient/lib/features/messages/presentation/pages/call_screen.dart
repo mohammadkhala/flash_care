@@ -185,41 +185,51 @@ class _CallScreenState extends State<CallScreen> {
       await _engine!.startPreview();
     }
 
-    // 6. Join channel — leave first (no-op if not in one) to avoid -17
-    final _joinOpts = ChannelMediaOptions(
+    // 6. Join channel
+    final joinOpts = ChannelMediaOptions(
       autoSubscribeAudio: true,
       autoSubscribeVideo: widget.isVideo,
       publishMicrophoneTrack: true,
       publishCameraTrack: widget.isVideo,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     );
-    try {
-      try { await _engine!.leaveChannel(); } catch (_) {}
+
+    Future<void> doJoin(String token) async {
       await _engine!.joinChannel(
-        token: _token ?? '',
+        token: token,
         channelId: widget.channel,
         uid: 0,
-        options: _joinOpts,
+        options: joinOpts,
       );
+    }
+
+    try {
+      await doJoin(_token ?? '');
     } catch (e) {
-      // If still rejected, try once more with empty token (certificate may be disabled)
-      if (e is AgoraRtcException &&
-          (e.code == -17 || e.code == 17) &&
-          (_token?.isNotEmpty ?? false)) {
+      final msg = e.toString();
+      // -17 = ERR_JOIN_CHANNEL_REJECTED: engine may still be settling, retry after delay
+      if (msg.contains('-17') || msg.contains('join_channel_rejected')) {
         try {
-          _token = '';
-          await _engine!.joinChannel(
-            token: '',
-            channelId: widget.channel,
-            uid: 0,
-            options: _joinOpts,
-          );
+          await Future.delayed(const Duration(milliseconds: 1200));
+          await doJoin(_token ?? '');
           return;
-        } catch (_) {}
+        } catch (e2) {
+          // If still -17 and we have a token, retry without token
+          if (e2.toString().contains('-17') && (_token?.isNotEmpty ?? false)) {
+            try {
+              await doJoin('');
+              return;
+            } catch (_) {}
+          }
+          if (mounted) setState(() {
+            _joining = false; _connectionError = true;
+            _connectionErrorMsg = 'خطأ في الانضمام: ${e2.toString()}';
+          });
+          return;
+        }
       }
       if (mounted) setState(() {
-        _joining = false;
-        _connectionError = true;
+        _joining = false; _connectionError = true;
         _connectionErrorMsg = e.toString();
       });
     }

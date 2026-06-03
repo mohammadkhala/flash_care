@@ -254,18 +254,8 @@ class _HomeShellState extends State<HomeShell> {
             label: S.programs,
           ),
           NavigationDestination(
-            icon: _unreadNotifications > 0
-                ? Badge(
-                    label: Text('$_unreadNotifications'),
-                    child: const Icon(Icons.person_outline),
-                  )
-                : const Icon(Icons.person_outline),
-            selectedIcon: _unreadNotifications > 0
-                ? Badge(
-                    label: Text('$_unreadNotifications'),
-                    child: const Icon(Icons.person),
-                  )
-                : const Icon(Icons.person),
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
             label: S.myProfile,
           ),
         ],

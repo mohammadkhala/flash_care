@@ -97,8 +97,15 @@ class _ChatPageState extends State<ChatPage> {
           ? r.data as List
           : ((r.data['data'] ?? r.data) as List? ?? []);
       final list = raw.cast<Map<String, dynamic>>();
-      // API returns newest-first. With reverse:true on ListView,
-      // index 0 = newest = shown at BOTTOM. No reversal or manual scroll needed.
+
+      // API newest-first; with reverse:true index 0 = newest = at bottom.
+      // On silent (timer) poll: only rebuild if count changed OR newest ID changed
+      // — prevents visual flicker every 8 s when nothing new arrived.
+      if (silent && _msgs.isNotEmpty && list.isNotEmpty) {
+        final newId = list.first['id'];
+        final curId = _msgs.first['id'];
+        if (newId == curId && list.length == _msgs.length) return;
+      }
       setState(() {
         _msgs..clear()..addAll(list);
         _loading = false;
