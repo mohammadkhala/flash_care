@@ -82,10 +82,18 @@ class FcmService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
+    final type = message.data['type'] as String? ?? '';
+
+    // Incoming call → open call screen immediately (no tap needed)
+    if (type == 'incoming_call') {
+      final payload = NotificationService.buildPayloadFromData(message.data);
+      if (payload != null) NotificationService.instance.handleDeepLink(payload);
+      return;
+    }
+
     final plugin = FlutterLocalNotificationsPlugin();
     final notification = message.notification;
     if (notification == null) return;
-    // Include deep-link payload so tapping the local notification navigates correctly
     final payload = NotificationService.buildPayloadFromData(message.data);
     plugin.show(
       message.hashCode,

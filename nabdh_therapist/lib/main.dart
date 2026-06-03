@@ -22,7 +22,7 @@ void main() async {
 
   await NotificationService.instance.init();
   // Wire up navigation so notification taps can route correctly
-  NotificationService.instance.setNavigator((route) => appRouter.push(route));
+  NotificationService.instance.setNavigator((route, [extra]) => appRouter.push(route, extra: extra));
 
   // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
   unawaited(AppSettingsService.instance.init());

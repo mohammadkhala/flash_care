@@ -126,7 +126,7 @@ void main() async {
   await LocaleService.instance.load();
 
   // Wire up navigation BEFORE runApp so the pending-payload check works
-  NotificationService.instance.setNavigator((route) => appRouter.push(route));
+  NotificationService.instance.setNavigator((route, [extra]) => appRouter.push(route, extra: extra));
 
   runApp(const NabdhPatientApp());
 }

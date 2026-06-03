@@ -18,7 +18,7 @@ class NotificationService {
   final _unreadCount = ValueNotifier<int>(0);
   Timer? _pollTimer;
 
-  void Function(String route)? _navigate;
+  void Function(String route, [Object? extra])? _navigate;
   static String? _pendingPayload;
 
   ValueNotifier<int> get unreadCount => _unreadCount;
@@ -27,7 +27,7 @@ class NotificationService {
     _pendingPayload = payload;
   }
 
-  void setNavigator(void Function(String route) navigate) {
+  void setNavigator(void Function(String route, [Object? extra]) navigate) {
     _navigate = navigate;
     final pending = _pendingPayload;
     if (pending != null) {
@@ -80,9 +80,37 @@ class NotificationService {
 
   void _handlePayload(String? payload) {
     if (payload == null || payload.isEmpty) return;
+
+    // Incoming call: navigate directly with extra data
+    if (payload.startsWith('call:')) {
+      _handleCallPayload(payload);
+      return;
+    }
+
     final route = _payloadToRoute(payload);
     if (_navigate != null) {
       Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
+    } else {
+      _pendingPayload = payload;
+    }
+  }
+
+  // Format: call:CHANNEL|CALLER_NAME|IS_VIDEO
+  void _handleCallPayload(String payload) {
+    final rest       = payload.substring('call:'.length);
+    final parts      = rest.split('|');
+    final channel    = parts.isNotEmpty ? parts[0] : '';
+    final callerName = parts.length > 1 ? parts[1] : 'مكالمة';
+    final isVideo    = parts.length > 2 && parts[2] == '1';
+    final extra = <String, dynamic>{
+      'conversationId': 0,
+      'peerName':       callerName,
+      'isVideo':        isVideo,
+      'isCaller':       false,
+      'channel':        channel,
+    };
+    if (_navigate != null) {
+      Future.delayed(const Duration(milliseconds: 400), () => _navigate!('/call', extra));
     } else {
       _pendingPayload = payload;
     }
@@ -102,13 +130,22 @@ class NotificationService {
       return '/programs/${payload.substring('program:'.length)}';
     }
     if (payload == 'reels') return '/reels';
-    // Default: open notifications list
     return '/notifications';
   }
 
   // ── Build payload from notification data map (shared with FcmService) ─────
 
   static String? buildPayloadFromData(Map<String, dynamic> data) {
+    final type = data['type'] as String? ?? '';
+
+    // Incoming call — encode channel + caller name + video flag
+    if (type == 'incoming_call') {
+      final channel    = data['channel']     as String? ?? '';
+      final callerName = data['caller_name'] as String? ?? 'مكالمة';
+      final isVideo    = data['is_video'] == 'true' || data['is_video'] == true;
+      return 'call:$channel|$callerName|${isVideo ? '1' : '0'}';
+    }
+
     final aptId  = data['appointment_id'];
     if (aptId != null) return 'appointment:$aptId';
     final convId = data['conversation_id'];
@@ -117,7 +154,6 @@ class NotificationService {
     if (goalId != null) return 'goal:$goalId';
     final progId = data['program_id'];
     if (progId != null) return 'program:$progId';
-    final type = data['type'] as String? ?? '';
     if (type == 'account_approved') return 'notifications';
     if (type == 'reel_approved' || type == 'new_reel') return 'reels';
     return null;
