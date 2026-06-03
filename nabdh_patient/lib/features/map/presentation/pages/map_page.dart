@@ -1,9 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -15,14 +14,13 @@ class TherapistMapPage extends StatefulWidget {
 }
 
 class _TherapistMapPageState extends State<TherapistMapPage> {
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
   Position? _myPosition;
   List<Map<String, dynamic>> _therapists = [];
   Map<String, dynamic>? _selected;
   bool _loading = true;
   bool _locating = false;
 
-  // Default center: Palestine
   static const LatLng _palestineCenter = LatLng(31.9, 35.2);
 
   @override
@@ -31,9 +29,15 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
     _init();
   }
 
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
+
   Future<void> _init() async {
     await _getLocation();
-    await _loadNearby(); // Always load — uses Palestine center as fallback if no GPS
+    await _loadNearby();
   }
 
   Future<void> _getLocation() async {
@@ -64,14 +68,12 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
       );
       setState(() { _myPosition = pos; _locating = false; });
     } catch (_) {
-      _showSnack('تعذّر الحصول على الموقع');
       setState(() { _locating = false; _loading = false; });
     }
   }
 
   Future<void> _loadNearby() async {
     setState(() => _loading = true);
-    // Use real position if available, otherwise fallback to Palestine center
     final lat = _myPosition?.latitude ?? _palestineCenter.latitude;
     final lng = _myPosition?.longitude ?? _palestineCenter.longitude;
     try {
@@ -80,20 +82,24 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
         'lng': lng,
         'radius': 50,
       });
+      if (!mounted) return;
       setState(() {
         _therapists = (r.data as List).cast<Map<String, dynamic>>();
         _loading = false;
       });
       _fitMap();
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   void _fitMap() {
-    if (_therapists.isEmpty || _myPosition == null) return;
-    double minLat = _myPosition!.latitude, maxLat = _myPosition!.latitude;
-    double minLng = _myPosition!.longitude, maxLng = _myPosition!.longitude;
+    if (_mapController == null || _therapists.isEmpty) return;
+    double minLat = _myPosition?.latitude ?? _palestineCenter.latitude;
+    double maxLat = minLat;
+    double minLng = _myPosition?.longitude ?? _palestineCenter.longitude;
+    double maxLng = minLng;
+
     for (final t in _therapists) {
       final lat = (t['latitude'] as num?)?.toDouble();
       final lng = (t['longitude'] as num?)?.toDouble();
@@ -103,21 +109,25 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
       minLng = math.min(minLng, lng);
       maxLng = math.max(maxLng, lng);
     }
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds(
-          LatLng(minLat - 0.01, minLng - 0.01),
-          LatLng(maxLat + 0.01, maxLng + 0.01),
+
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat - 0.02, minLng - 0.02),
+          northeast: LatLng(maxLat + 0.02, maxLng + 0.02),
         ),
-        padding: const EdgeInsets.all(60),
+        60,
       ),
     );
   }
 
   void _goToMe() {
     if (_myPosition == null) { _getLocation(); return; }
-    _mapController.move(
-      LatLng(_myPosition!.latitude, _myPosition!.longitude), 14,
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(CameraPosition(
+        target: LatLng(_myPosition!.latitude, _myPosition!.longitude),
+        zoom: 14,
+      )),
     );
   }
 
@@ -128,7 +138,12 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
     final lng = (nearest['longitude'] as num?)?.toDouble();
     if (lat == null || lng == null) return;
     setState(() => _selected = nearest);
-    _mapController.move(LatLng(lat, lng), 15);
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(CameraPosition(
+        target: LatLng(lat, lng),
+        zoom: 15,
+      )),
+    );
   }
 
   void _showSnack(String msg) {
@@ -141,90 +156,45 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
       ? LatLng(_myPosition!.latitude, _myPosition!.longitude)
       : _palestineCenter;
 
-  List<Marker> get _markers {
-    final list = <Marker>[];
-    // My location
+  Set<Marker> get _markers {
+    final markers = <Marker>{};
+
+    // My location marker
     if (_myPosition != null) {
-      list.add(Marker(
-        point: LatLng(_myPosition!.latitude, _myPosition!.longitude),
-        width: 36, height: 36,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.blue,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
-          ),
-          child: const Icon(Icons.person_pin_circle_rounded, color: Colors.white, size: 20),
-        ),
+      markers.add(Marker(
+        markerId: const MarkerId('me'),
+        position: LatLng(_myPosition!.latitude, _myPosition!.longitude),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'موقعي'),
       ));
     }
-    // Therapists
+
+    // Therapist markers
     for (final t in _therapists) {
       final lat = (t['latitude'] as num?)?.toDouble();
       final lng = (t['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null) continue;
+      final id = t['id'].toString();
+      final name = t['full_name'] as String? ?? '';
+      final rating = (t['rating_average'] as num?)?.toStringAsFixed(1) ?? '0';
       final isSelected = _selected?['id'] == t['id'];
-      final name = (t['full_name'] as String? ?? '').split(' ').take(2).join(' ');
-      final markerColor = isSelected ? AppColors.accent : AppColors.primary;
 
-      list.add(Marker(
-        point: LatLng(lat, lng),
-        width: 100, height: 70,
-        alignment: Alignment.bottomCenter,
-        child: GestureDetector(
-          onTap: () => setState(() => _selected = (_selected?['id'] == t['id']) ? null : t),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Name label
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: markerColor,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(
-                    color: markerColor.withOpacity(0.35),
-                    blurRadius: 4, offset: const Offset(0, 2),
-                  )],
-                ),
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Cairo',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 2),
-              // Pin icon
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: markerColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2.5),
-                  boxShadow: [BoxShadow(
-                    color: markerColor.withOpacity(0.4),
-                    blurRadius: 8, spreadRadius: 1,
-                  )],
-                ),
-                child: Icon(
-                  isSelected ? Icons.medical_services_rounded : Icons.person_pin_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
+      markers.add(Marker(
+        markerId: MarkerId(id),
+        position: LatLng(lat, lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          isSelected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueViolet,
+        ),
+        infoWindow: InfoWindow(
+          title: name,
+          snippet: '⭐ $rating',
+        ),
+        onTap: () => setState(() =>
+          _selected = (_selected?['id'] == t['id']) ? null : t,
         ),
       ));
     }
-    return list;
+    return markers;
   }
 
   @override
@@ -244,35 +214,32 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
         ],
       ),
       body: Stack(children: [
-        // ── flutter_map with OpenStreetMap tiles ──────────────────────
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: _center,
-            initialZoom: 12,
-            onTap: (_, __) => setState(() => _selected = null),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.nabdh.patient',
-              maxZoom: 19,
-            ),
-            MarkerLayer(markers: _markers),
-          ],
+        // ── Google Map ─────────────────────────────────────────────
+        GoogleMap(
+          initialCameraPosition: CameraPosition(target: _center, zoom: 12),
+          onMapCreated: (controller) {
+            _mapController = controller;
+            if (_therapists.isNotEmpty) _fitMap();
+          },
+          markers: _markers,
+          myLocationEnabled: _myPosition != null,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          onTap: (_) => setState(() => _selected = null),
         ),
 
-        // ── Loading overlay ────────────────────────────────────────────
+        // ── Loading overlay ────────────────────────────────────────
         if (_loading)
           Container(
             color: Colors.black26,
             child: const Center(child: CircularProgressIndicator(color: Colors.white)),
           ),
 
-        // ── FABs ───────────────────────────────────────────────────────
+        // ── FABs ──────────────────────────────────────────────────
         Positioned(
-          bottom: _selected != null ? 210 : 20,
-          left: 16,
+          bottom: _selected != null ? 220 : 24,
+          right: 16,
           child: Column(children: [
             FloatingActionButton.small(
               heroTag: 'nearest',
@@ -295,7 +262,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
           ]),
         ),
 
-        // ── Selected therapist card ────────────────────────────────────
+        // ── Selected therapist card ────────────────────────────────
         if (_selected != null)
           Positioned(
             bottom: 0, left: 0, right: 0,
@@ -310,6 +277,7 @@ class _TherapistMapPageState extends State<TherapistMapPage> {
   }
 }
 
+// ── Therapist info card ─────────────────────────────────────────────────────
 class _TherapistCard extends StatelessWidget {
   final Map<String, dynamic> therapist;
   final VoidCallback onClose;
