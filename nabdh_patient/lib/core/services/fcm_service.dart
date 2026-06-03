@@ -14,17 +14,25 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ),
     onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
   );
-  // Build deep-link payload so tapping the notification routes correctly
+
   final payload = NotificationService.buildPayloadFromData(message.data);
+  final isCall  = message.data['type'] == 'incoming_call';
+
   await plugin.show(
     message.hashCode,
     message.notification?.title ?? 'نبض',
-    message.notification?.body ?? '',
-    const NotificationDetails(
+    message.notification?.body  ?? '',
+    NotificationDetails(
       android: AndroidNotificationDetails(
-        'nabdh_patient_channel', 'إشعارات نبض',
-        importance: Importance.high,
-        priority: Priority.high,
+        isCall ? 'call_channel' : 'nabdh_patient_channel',
+        isCall ? 'مكالمات واردة' : 'إشعارات نبض',
+        importance:       isCall ? Importance.max  : Importance.high,
+        priority:         isCall ? Priority.max    : Priority.high,
+        fullScreenIntent: isCall,
+        category:         isCall ? AndroidNotificationCategory.call : null,
+        visibility:       isCall ? NotificationVisibility.public : null,
+        ongoing:          isCall,          // can't be swiped away
+        autoCancel:       !isCall,
         icon: '@mipmap/ic_launcher',
       ),
     ),

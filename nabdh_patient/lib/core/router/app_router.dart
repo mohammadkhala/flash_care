@@ -22,6 +22,7 @@ import '../../features/reels/presentation/pages/reels_feed_page.dart';
 import '../../features/messages/presentation/pages/conversations_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/calls/presentation/pages/webrtc_call_page.dart';
+import '../../features/calls/presentation/pages/incoming_call_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/programs/presentation/pages/programs_page.dart';
@@ -144,6 +145,17 @@ final appRouter = GoRouter(
           isVideo:         extra['isVideo']        as bool?   ?? false,
           isCaller:        extra['isCaller']       as bool?   ?? true,
           incomingChannel: extra['channel']        as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/incoming-call',
+      builder: (_, s) {
+        final extra = s.extra as Map? ?? {};
+        return IncomingCallPage(
+          channel:    extra['channel']    as String? ?? '',
+          callerName: extra['callerName'] as String? ?? 'مكالمة',
+          isVideo:    extra['isVideo']    as bool?   ?? false,
         );
       },
     ),

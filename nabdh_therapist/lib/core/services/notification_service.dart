@@ -63,6 +63,14 @@ class NotificationService {
     );
     await androidPlugin?.createNotificationChannel(channel);
 
+    // High-priority channel for incoming calls (fullScreenIntent)
+    const callChannel = AndroidNotificationChannel(
+      'call_channel', 'مكالمات واردة',
+      description: 'إشعارات المكالمات الواردة',
+      importance: Importance.max,
+    );
+    await androidPlugin?.createNotificationChannel(callChannel);
+
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
@@ -103,14 +111,13 @@ class NotificationService {
     final callerName = parts.length > 1 ? parts[1] : 'مكالمة';
     final isVideo    = parts.length > 2 && parts[2] == '1';
     final extra = <String, dynamic>{
-      'conversationId': 0,
-      'peerName':       callerName,
-      'isVideo':        isVideo,
-      'isCaller':       false,
-      'channel':        channel,
+      'channel':    channel,
+      'callerName': callerName,
+      'isVideo':    isVideo,
     };
     if (_navigate != null) {
-      Future.delayed(const Duration(milliseconds: 400), () => _navigate!('/call', extra));
+      Future.delayed(const Duration(milliseconds: 400),
+          () => _navigate!('/incoming-call', extra));
     } else {
       _pendingPayload = payload;
     }
