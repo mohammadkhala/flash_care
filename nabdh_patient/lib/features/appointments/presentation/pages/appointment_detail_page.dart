@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../messages/presentation/pages/call_screen.dart';
+import '../../../calls/presentation/pages/webrtc_call_page.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -330,12 +330,12 @@ class _JoinSessionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: () => Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CallScreen(
-        channel:     'nabdh-session-$appointmentId',
-        appId:       '',
-        isVideo:     true,
-        partnerName: 'أخصائي',
-        uid:         0,
+      builder: (_) => WebRtcCallPage(
+        appointmentId:   appointmentId,
+        peerName:        'أخصائي',
+        isVideo:         true,
+        isCaller:        false,
+        incomingChannel: 'webrtc-session-$appointmentId',
       ),
     )),
     child: AnimatedContainer(

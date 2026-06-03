@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/s.dart';
+import '../../core/widgets/whatsapp_fab.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -62,6 +63,7 @@ class _HomePageState extends State<HomePage> {
                 style: const TextStyle(fontSize: 15, fontFamily: 'Cairo')),
           ]),
           actions: [
+            const WhatsAppHeaderButton(),
             Stack(children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),

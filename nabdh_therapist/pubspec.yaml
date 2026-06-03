@@ -48,7 +48,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
 
   # Calls
-  agora_rtc_engine: ^6.5.2
+  flutter_webrtc: ^0.12.5
 
   # Fonts
   google_fonts: ^6.2.1

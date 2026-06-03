@@ -11,8 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/agora_service.dart';
-import 'call_screen.dart';
+import '../../../calls/presentation/pages/webrtc_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 
 String _fix(String? url) {
@@ -42,8 +41,7 @@ class _ChatPageState extends State<ChatPage> {
   final List<Map<String, dynamic>> _msgs = [];
   bool _loading = true;
   bool _sending = false;
-  final _ctrl   = TextEditingController();
-  final _scroll  = ScrollController();
+  final _ctrl = TextEditingController();
   Timer? _timer;
 
   int? _myUserId;
@@ -66,7 +64,6 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _timer?.cancel();
     _ctrl.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
@@ -96,18 +93,18 @@ class _ChatPageState extends State<ChatPage> {
           ? (r.data as List).cast<Map<String, dynamic>>()
           : ((r.data['data'] ?? r.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
 
-      // API newest-first; with reverse:true index 0 = newest = at bottom.
-      if (silent && _msgs.isNotEmpty && raw.isNotEmpty) {
-        final sameTop = raw.first['id'].toString() == _msgs.first['id'].toString();
-        if (sameTop && raw.length == _msgs.length) return; // nothing new
+      // Sort newest-first (descending by id) regardless of API order
+      raw.sort((a, b) {
+        final ai = a['id'] is int ? a['id'] as int : int.tryParse('${a['id']}') ?? 0;
+        final bi = b['id'] is int ? b['id'] as int : int.tryParse('${b['id']}') ?? 0;
+        return bi.compareTo(ai);
+      });
 
-        if (raw.length > _msgs.length && sameTop == false) {
-          // Incremental insert: prepend only the new messages (no clear → no jump)
-          final newCount = raw.length - _msgs.length;
-          setState(() => _msgs.insertAll(0, raw.take(newCount).toList()));
-          return;
-        }
-      }
+      // Skip update if nothing changed
+      if (silent && _msgs.length == raw.length &&
+          _msgs.isNotEmpty && raw.isNotEmpty &&
+          _msgs.first['id'].toString() == raw.first['id'].toString()) return;
+
       setState(() {
         _msgs..clear()..addAll(raw);
         _loading = false;
@@ -261,12 +258,11 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CallScreen(
-        channel:     'nabdh-chat-$_convoId',
-        appId:       '',
-        isVideo:     isVideo,
-        partnerName: _partnerName,
-        uid:         0,
+      builder: (_) => WebRtcCallPage(
+        conversationId: _convoId!,
+        peerName:       _partnerName.isNotEmpty ? _partnerName : 'الأخصائي',
+        isVideo:        isVideo,
+        isCaller:       true,
       ),
     ));
   }
@@ -310,7 +306,6 @@ class _ChatPageState extends State<ChatPage> {
                     ]),
                   )
                 : ListView.builder(
-                    controller: _scroll,
                     reverse: true,   // index 0 = newest = shown at bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
