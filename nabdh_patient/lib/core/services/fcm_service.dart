@@ -79,7 +79,7 @@ void onBackgroundNotificationTap(NotificationResponse response) {
     return;
   }
   // Accept tap or normal notification tap → store payload for navigation
-  NotificationService._storePendingPayload(response.payload);
+  NotificationService.storePendingPayload(response.payload);
 }
 
 /// Reject call from background isolate — no app context needed.

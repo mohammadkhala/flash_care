@@ -4,12 +4,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../network/api_client.dart';
 import '../utils/json_utils.dart';
 
-// ─── Top-level background tap handler ─────────────────────────────────────────
-@pragma('vm:entry-point')
-void onBackgroundNotificationTap(NotificationResponse response) {
-  NotificationService._storePendingPayload(response.payload);
-}
-
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -23,7 +17,7 @@ class NotificationService {
 
   ValueNotifier<int> get unreadCount => _unreadCount;
 
-  static void _storePendingPayload(String? payload) {
+  static void storePendingPayload(String? payload) {
     _pendingPayload = payload;
   }
 
@@ -48,7 +42,6 @@ class NotificationService {
     await _plugin.initialize(
       settings,
       onDidReceiveNotificationResponse: _onForegroundTap,
-      onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
     );
 
     final androidPlugin = _plugin

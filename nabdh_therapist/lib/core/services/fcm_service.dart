@@ -77,7 +77,7 @@ void onBackgroundNotificationTap(NotificationResponse response) {
     _backgroundRejectCall(response.payload);
     return;
   }
-  NotificationService._storePendingPayload(response.payload);
+  NotificationService.storePendingPayload(response.payload);
 }
 
 Future<void> _backgroundRejectCall(String? payload) async {
