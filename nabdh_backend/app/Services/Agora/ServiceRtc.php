@@ -11,10 +11,13 @@ class ServiceRtc
     const SERVICE_TYPE = 1;
 
     // Privilege codes
-    const PRIV_JOIN_CHANNEL          = 1;
-    const PRIV_PUBLISH_AUDIO_STREAM  = 2;
-    const PRIV_PUBLISH_VIDEO_STREAM  = 3;
-    const PRIV_PUBLISH_DATA_STREAM   = 4;
+    const PRIV_JOIN_CHANNEL           = 1;
+    const PRIV_PUBLISH_AUDIO_STREAM   = 2;
+    const PRIV_PUBLISH_VIDEO_STREAM   = 3;
+    const PRIV_PUBLISH_DATA_STREAM    = 4;
+    const PRIV_SUBSCRIBE_AUDIO_STREAM = 5;
+    const PRIV_SUBSCRIBE_VIDEO_STREAM = 6;
+    const PRIV_SUBSCRIBE_DATA_STREAM  = 7;
 
     private string $channelName;
     private string $uid;           // uid as string; empty string means "any uid"
