@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/fcm_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class LoginPage extends StatefulWidget {
@@ -43,6 +45,7 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       await ApiClient.setToken(res.data['token']);
+      unawaited(FcmService.instance.refreshToken());
       if (!mounted) return;
 
       if (res.data['needs_profile'] == true) {

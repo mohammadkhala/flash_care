@@ -127,6 +127,9 @@ class FcmService {
     } catch (_) {}
   }
 
+  /// Call this after successful login to ensure FCM token is registered.
+  Future<void> refreshToken() => _saveToken();
+
   Future<void> _saveToken() async {
     try {
       final token = await _messaging.getToken();
