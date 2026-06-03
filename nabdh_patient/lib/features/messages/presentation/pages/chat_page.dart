@@ -11,8 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/agora_service.dart';
-import 'call_screen.dart';
+import '../../../calls/presentation/pages/webrtc_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 
 String _fix(String? url) {
@@ -42,8 +41,7 @@ class _ChatPageState extends State<ChatPage> {
   final List<Map<String, dynamic>> _msgs = [];
   bool _loading = true;
   bool _sending = false;
-  final _ctrl   = TextEditingController();
-  final _scroll  = ScrollController();
+  final _ctrl = TextEditingController();
   Timer? _timer;
 
   int? _myUserId;
@@ -66,7 +64,6 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _timer?.cancel();
     _ctrl.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
@@ -95,25 +92,26 @@ class _ChatPageState extends State<ChatPage> {
       final raw = r.data is List
           ? (r.data as List).cast<Map<String, dynamic>>()
           : ((r.data['data'] ?? r.data) as List?)?.cast<Map<String, dynamic>>() ?? [];
-      // API returns newest-first → reverse → oldest-first so list renders top=old bottom=new
+
+      // Sort newest-first (descending by id) regardless of API order
+      raw.sort((a, b) {
+        final ai = a['id'] is int ? a['id'] as int : int.tryParse('${a['id']}') ?? 0;
+        final bi = b['id'] is int ? b['id'] as int : int.tryParse('${b['id']}') ?? 0;
+        return bi.compareTo(ai);
+      });
+
+      // Skip update if nothing changed
+      if (silent && _msgs.length == raw.length &&
+          _msgs.isNotEmpty && raw.isNotEmpty &&
+          _msgs.first['id'].toString() == raw.first['id'].toString()) return;
+
       setState(() {
-        _msgs..clear()..addAll(raw.reversed.toList());
+        _msgs..clear()..addAll(raw);
         _loading = false;
       });
-      _scrollToBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  /// Scroll to the bottom of the chat.
-  /// jumpTo(9e9) forces Flutter to scroll as far as possible — it gets
-  /// clamped to the real maxScrollExtent even before all items are laid out.
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
-      _scroll.jumpTo(9e9);
-    });
   }
 
   // ── Send text ──────────────────────────────────────────────────
@@ -155,12 +153,23 @@ class _ChatPageState extends State<ChatPage> {
         options: isForm ? Options(contentType: 'multipart/form-data') : null,
       );
       if (!mounted) return;
+
+      // Update convo ID if this was a brand-new conversation
       if (_isNew) {
         final msgObj = res.data['message'] as Map?;
         final cid = msgObj?['conversation_id'] as int?;
         if (cid != null) setState(() => _convoId = cid);
       }
-      await _loadMsgs(silent: true);
+
+      // Add the sent message directly at index 0 (newest-first) — no full reload,
+      // no flicker. With reverse:true the item appears at the bottom immediately.
+      final newMsg = res.data['message'] as Map<String, dynamic>?;
+      if (newMsg != null) {
+        setState(() => _msgs.insert(0, newMsg));
+      } else {
+        // Fallback: reload if API didn't return the message object
+        await _loadMsgs(silent: true);
+      }
     } on DioException catch (e) {
       final msg = (e.response?.data as Map?)?['message'] as String? ?? 'تعذّر الإرسال';
       if (mounted) _showErr(msg);
@@ -249,12 +258,11 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CallScreen(
-        channel:     'nabdh-chat-$_convoId',
-        appId:       '',
-        isVideo:     isVideo,
-        partnerName: _partnerName,
-        uid:         0,
+      builder: (_) => WebRtcCallPage(
+        conversationId: _convoId!,
+        peerName:       _partnerName.isNotEmpty ? _partnerName : 'الأخصائي',
+        isVideo:        isVideo,
+        isCaller:       true,
       ),
     ));
   }
@@ -298,7 +306,7 @@ class _ChatPageState extends State<ChatPage> {
                     ]),
                   )
                 : ListView.builder(
-                    controller: _scroll,
+                    reverse: true,   // index 0 = newest = shown at bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(

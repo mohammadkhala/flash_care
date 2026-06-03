@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../calls/presentation/pages/video_call_page.dart';
+import '../../../calls/presentation/pages/webrtc_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
 
@@ -83,11 +83,11 @@ class _State extends State<AppointmentDetailPage> {
     final patientName = (_apt?['patient'] as Map?)?['full_name'] as String? ?? 'المريض';
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => VideoCallPage(
-        channel:  'nabdh-session-${widget.id}',
-        appId:    '',
-        peerName: patientName,
-        isVideo:  true,
+      builder: (_) => WebRtcCallPage(
+        appointmentId: widget.id,
+        peerName:      patientName,
+        isVideo:       true,
+        isCaller:      true,
       ),
     ));
   }

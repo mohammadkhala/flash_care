@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AgoraController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Patient\TherapistSearchController;
+use App\Http\Controllers\Shared\CallController;
 use App\Http\Controllers\Shared\MessageController;
 use App\Http\Controllers\Therapist\AppointmentController as TherapistAppointmentController;
 use App\Http\Controllers\Therapist\HomeProgramController;
@@ -168,6 +169,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('documents',          [PatientDocumentController::class, 'store']);
         Route::delete('documents/{document}', [PatientDocumentController::class, 'destroy']);
     });
+
+    // ── WebRTC Call Signaling ─────────────────────────────────
+    Route::post('calls/initiate',          [CallController::class, 'initiate']);
+    Route::get('calls/{channel}',          [CallController::class, 'show']);
+    Route::post('calls/{channel}/answer',  [CallController::class, 'answer']);
+    Route::post('calls/{channel}/ice',     [CallController::class, 'addIce']);
+    Route::post('calls/{channel}/status',  [CallController::class, 'updateStatus']);
 
     // ── Shared Routes ─────────────────────────────────────────
     Route::prefix('messages')->group(function () {

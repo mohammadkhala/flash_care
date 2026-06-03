@@ -25,7 +25,7 @@ import '../../features/statistics/statistics_page.dart' show StatisticsPage;
 import '../../features/articles/presentation/pages/articles_page.dart';
 import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
-import '../../features/calls/presentation/pages/video_call_page.dart';
+import '../../features/calls/presentation/pages/webrtc_call_page.dart';
 import '../../features/assessments/presentation/pages/assessment_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
@@ -83,13 +83,12 @@ final appRouter = GoRouter(
       path: '/call',
       builder: (_, state) {
         final extra = state.extra as Map<String, dynamic>? ?? {};
-        return VideoCallPage(
-          channel:  extra['channel']  as String? ?? '',
-          appId:    extra['appId']    as String? ?? '',
-          token:    extra['token']    as String? ?? '',
-          uid:      extra['uid']      as int?    ?? 0,
-          peerName: extra['peerName'] as String? ?? 'المريض',
-          isVideo:  extra['isVideo']  as bool?   ?? true,
+        return WebRtcCallPage(
+          conversationId: extra['conversationId'] as int? ?? 0,
+          peerName:       extra['peerName']       as String? ?? 'المريض',
+          isVideo:        extra['isVideo']        as bool?   ?? true,
+          isCaller:       extra['isCaller']       as bool?   ?? true,
+          incomingChannel: extra['channel']       as String?,
         );
       },
     ),
@@ -219,8 +218,6 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.child,
-      floatingActionButton: const WhatsAppFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) {
@@ -254,18 +251,8 @@ class _HomeShellState extends State<HomeShell> {
             label: S.programs,
           ),
           NavigationDestination(
-            icon: _unreadNotifications > 0
-                ? Badge(
-                    label: Text('$_unreadNotifications'),
-                    child: const Icon(Icons.person_outline),
-                  )
-                : const Icon(Icons.person_outline),
-            selectedIcon: _unreadNotifications > 0
-                ? Badge(
-                    label: Text('$_unreadNotifications'),
-                    child: const Icon(Icons.person),
-                  )
-                : const Icon(Icons.person),
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
             label: S.myProfile,
           ),
         ],
