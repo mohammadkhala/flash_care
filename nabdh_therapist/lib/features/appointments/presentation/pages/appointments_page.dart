@@ -142,7 +142,10 @@ class _AppCard extends StatelessWidget {
     final patient   = apt['patient'] as Map?;
     final scheduled = DateTime.tryParse(apt['scheduled_at'] as String? ?? '');
     final status    = apt['status'] as String? ?? '';
-    final name      = (patient?['full_name'] ?? patient?['user']?['name'] ?? 'مريض') as String;
+    final name      = (patient?['full_name']
+        ?? patient?['user']?['name']
+        ?? patient?['user']?['phone']
+        ?? 'مريض') as String;
     final isOnline  = apt['type'] == 'online';
 
     final cfg = _statusConfig[status] ?? (S.cancelledPlural, AppColors.errorLight, const Color(0xFFFFEBEE), Icons.cancel_outlined);

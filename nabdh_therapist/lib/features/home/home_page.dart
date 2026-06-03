@@ -29,9 +29,11 @@ class _HomePageState extends State<HomePage> {
       ]);
       final t = meRes.data['user']?['therapist'] as Map? ?? {};
       final appts = apptRes.data is List ? apptRes.data : (apptRes.data['data'] ?? []);
+      // backend wraps stats under 'statistics' key
+      final rawStats = statsRes.data;
       setState(() {
         _name   = t['full_name'] ?? meRes.data['user']?['name'] ?? 'دكتور';
-        _stats  = statsRes.data is Map ? statsRes.data : {};
+        _stats  = rawStats is Map ? ((rawStats['statistics'] as Map?) ?? rawStats) : {};
         _today  = appts as List;
         _unread = (_stats['unread_messages'] as int?) ?? 0;
         _loading = false;

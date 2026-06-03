@@ -25,7 +25,7 @@ class AppointmentController extends Controller
         ]);
 
         $query = $request->user()->therapist->appointments()
-            ->with(['patient', 'clinic', 'sessionNote'])
+            ->with(['patient.user', 'clinic', 'sessionNote'])
             ->orderBy('scheduled_at', 'desc');
 
         if ($request->status) $query->where('status', $request->status);
