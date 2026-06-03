@@ -103,6 +103,12 @@ class _ChatPageState extends State<ChatPage> {
         _msgs..clear()..addAll(list);
         _loading = false;
       });
+      // With reverse:true, position 0 = bottom (newest). Jump there after every load.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) {
+          _scroll.jumpTo(0);
+        }
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
