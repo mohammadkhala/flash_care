@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/json_utils.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/l10n/s.dart';
+import '../../core/widgets/whatsapp_fab.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
@@ -146,20 +147,24 @@ class _HomePageState extends State<HomePage> {
         Text(DateFormat('EEEE، d MMMM', 'ar').format(DateTime.now()),
           style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
       ])),
-      Stack(children: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
-          onPressed: () => context.push('/notifications'),
-        ),
-        if (_unread > 0) Positioned(
-          top: 8, left: 8,
-          child: Container(
-            width: 18, height: 18,
-            decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-            child: Center(child: Text('$_unread',
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700))),
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        const WhatsAppHeaderButton(),
+        const SizedBox(width: 4),
+        Stack(children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
+            onPressed: () => context.push('/notifications'),
           ),
-        ),
+          if (_unread > 0) Positioned(
+            top: 8, left: 8,
+            child: Container(
+              width: 18, height: 18,
+              decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+              child: Center(child: Text('$_unread',
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700))),
+            ),
+          ),
+        ]),
       ]),
     ]),
   );
