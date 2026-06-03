@@ -106,14 +106,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Scroll to the bottom of the chat after list is fully laid out.
-  /// Double addPostFrameCallback: frame-1 = setState done, frame-2 = ListView layout done.
+  /// Scroll to the bottom of the chat.
+  /// jumpTo(9e9) forces Flutter to scroll as far as possible — it gets
+  /// clamped to the real maxScrollExtent even before all items are laid out.
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scroll.hasClients) return;
-        _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      });
+      if (!mounted || !_scroll.hasClients) return;
+      _scroll.jumpTo(9e9);
     });
   }
 

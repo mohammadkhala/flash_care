@@ -108,13 +108,12 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Double addPostFrameCallback: frame-1 = setState done, frame-2 = ListView layout done.
+  /// Scroll to the bottom. jumpTo(9e9) is clamped to real maxScrollExtent
+  /// even before ListView finishes measuring new items.
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scroll.hasClients) return;
-        _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      });
+      if (!mounted || !_scroll.hasClients) return;
+      _scroll.jumpTo(9e9);
     });
   }
 
