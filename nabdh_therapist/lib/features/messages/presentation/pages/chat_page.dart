@@ -97,24 +97,15 @@ class _ChatPageState extends State<ChatPage> {
           ? r.data as List
           : ((r.data['data'] ?? r.data) as List? ?? []);
       final list = raw.cast<Map<String, dynamic>>();
-      // API returns newest-first → reverse → oldest-first (top=old, bottom=new)
+      // API returns newest-first. With reverse:true on ListView,
+      // index 0 = newest = shown at BOTTOM. No reversal or manual scroll needed.
       setState(() {
-        _msgs..clear()..addAll(list.reversed.toList());
+        _msgs..clear()..addAll(list);
         _loading = false;
       });
-      _scrollToBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  /// Scroll to the bottom. jumpTo(9e9) is clamped to real maxScrollExtent
-  /// even before ListView finishes measuring new items.
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
-      _scroll.jumpTo(9e9);
-    });
   }
 
   // ── Send text ──────────────────────────────────────────────────
@@ -156,12 +147,23 @@ class _ChatPageState extends State<ChatPage> {
         options: isForm ? Options(contentType: 'multipart/form-data') : null,
       );
       if (!mounted) return;
+
+      // Update convo ID if this was a brand-new conversation
       if (_isNew) {
         final msgObj = res.data['message'] as Map?;
         final cid = msgObj?['conversation_id'] as int?;
         if (cid != null) setState(() => _convoId = cid);
       }
-      await _loadMsgs(silent: true);
+
+      // Add the sent message directly at index 0 (newest-first) — no full reload,
+      // no flicker. With reverse:true the item appears at the bottom immediately.
+      final newMsg = res.data['message'] as Map<String, dynamic>?;
+      if (newMsg != null) {
+        setState(() => _msgs.insert(0, newMsg));
+      } else {
+        // Fallback: reload if API didn't return the message object
+        await _loadMsgs(silent: true);
+      }
     } on DioException catch (e) {
       final msg = (e.response?.data as Map?)?['message'] as String? ?? 'تعذّر الإرسال';
       if (mounted) _showErr(msg);
@@ -285,6 +287,7 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
+                    reverse: true,   // index 0 = newest = shown at bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(

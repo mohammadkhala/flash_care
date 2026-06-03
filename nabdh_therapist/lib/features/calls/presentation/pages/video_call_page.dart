@@ -60,6 +60,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   // ── Init ───────────────────────────────────────────────────────────
   Future<void> _init() async {
+    // Always clean up any stale engine FIRST to avoid ERR_JOIN_CHANNEL_REJECTED (-17)
+    if (_engine != null) {
+      try { await _engine!.leaveChannel(); } catch (_) {}
+      try { await _engine!.release();      } catch (_) {}
+      _engine = null;
+    }
+
     if (!mounted) return;
     setState(() {
       _joining          = true;
@@ -180,21 +187,38 @@ class _VideoCallPageState extends State<VideoCallPage> {
       await _engine!.startPreview();
     }
 
-    // 6. Join channel
+    // 6. Join channel — leave first (no-op if not in one) to avoid -17
+    final _joinOpts = ChannelMediaOptions(
+      autoSubscribeAudio: true,
+      autoSubscribeVideo: widget.isVideo,
+      publishMicrophoneTrack: true,
+      publishCameraTrack: widget.isVideo,
+      clientRoleType: ClientRoleType.clientRoleBroadcaster,
+    );
     try {
+      try { await _engine!.leaveChannel(); } catch (_) {}
       await _engine!.joinChannel(
         token: _token ?? '',
         channelId: widget.channel,
         uid: 0,
-        options: ChannelMediaOptions(
-          autoSubscribeAudio: true,
-          autoSubscribeVideo: widget.isVideo,
-          publishMicrophoneTrack: true,
-          publishCameraTrack: widget.isVideo,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        ),
+        options: _joinOpts,
       );
     } catch (e) {
+      // If still rejected, try once more with empty token (certificate may be disabled)
+      if (e is AgoraRtcException &&
+          (e.code == -17 || e.code == 17) &&
+          (_token?.isNotEmpty ?? false)) {
+        try {
+          _token = '';
+          await _engine!.joinChannel(
+            token: '',
+            channelId: widget.channel,
+            uid: 0,
+            options: _joinOpts,
+          );
+          return;
+        } catch (_) {}
+      }
       if (mounted) setState(() {
         _joining = false;
         _connectionError = true;
