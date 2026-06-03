@@ -3,16 +3,14 @@
 namespace App\Services\Agora;
 
 /**
- * Agora AccessToken2 builder (token version 007).
+ * Agora AccessToken2 builder — token version 007.
  *
- * Token structure (after base64 + zlib decompression):
- *   [32-byte HMAC-SHA256 signature] + [packed message]
- *
- * Packed message:
- *   issueTs(uint32) | expire(uint32) | salt(uint32) | services_count(uint16)
- *   + one ServiceRtc packed entry
- *
- * Signing key  = HMAC-SHA256( appId + issueTs + salt , appCertificate )
+ * Matches the official Agora PHP SDK exactly:
+ *   - All integers packed as little-endian (V = uint32-LE, v = uint16-LE)
+ *   - Strings packed as uint16-LE length prefix + raw bytes
+ *   - Compressed with raw DEFLATE (zlib_encode ZLIB_ENCODING_DEFLATE)
+ *   - expire = duration in seconds (relative, NOT absolute timestamp)
+ *   - Signing input = packString(appId) + packUint32(issueTs) + packUint32(salt)
  */
 class AccessToken2
 {
@@ -20,7 +18,7 @@ class AccessToken2
 
     private string $appId;
     private string $appCert;
-    private int    $expire;
+    private int    $expire;   // duration in seconds (relative)
     private int    $issueTs;
     private int    $salt;
     private array  $services = [];
@@ -30,7 +28,7 @@ class AccessToken2
         $this->appId   = $appId;
         $this->appCert = $appCert;
         $this->issueTs = time();
-        $this->expire  = $this->issueTs + $expireSeconds; // absolute Unix timestamp
+        $this->expire  = $expireSeconds;           // relative duration (e.g. 3600)
         $this->salt    = random_int(1, 99_999_999);
     }
 
@@ -41,23 +39,26 @@ class AccessToken2
 
     public function build(): string
     {
-        $msg     = $this->buildMsg();
-        $signing = $this->getSign();
-        $payload = $signing . $msg;
+        $msg      = $this->buildMsg();
+        $sign     = $this->getSign();
+        $payload  = $sign . $msg;
 
-        return self::VERSION . base64_encode(gzcompress($payload));
+        // Raw DEFLATE — matches zlib_encode($payload, ZLIB_ENCODING_DEFLATE) in the official SDK
+        $compressed = zlib_encode($payload, ZLIB_ENCODING_DEFLATE);
+
+        return self::VERSION . base64_encode($compressed);
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private function buildMsg(): string
     {
-        $msg  = pack('N', $this->issueTs);
-        $msg .= pack('N', $this->expire);
-        $msg .= pack('N', $this->salt);
+        $msg  = pack('V', $this->issueTs);            // uint32 LE
+        $msg .= pack('V', $this->expire);             // uint32 LE (duration in seconds)
+        $msg .= pack('V', $this->salt);               // uint32 LE
 
-        ksort($this->services);
-        $msg .= pack('n', count($this->services));
+        ksort($this->services, SORT_NUMERIC);
+        $msg .= pack('v', count($this->services));    // uint16 LE
         foreach ($this->services as $svc) {
             $msg .= $svc->pack();
         }
@@ -65,17 +66,17 @@ class AccessToken2
     }
 
     /**
-     * Signing key  = HMAC-SHA256( appId + issueTs + salt , appCertificate )
+     * Signing key  = HMAC-SHA256( packString(appId) + packUint32(issueTs) + packUint32(salt) , appCert )
      * Signature    = HMAC-SHA256( buildMsg() , signingKey )
      */
     private function getSign(): string
     {
-        $signingKey = hash_hmac(
-            'sha256',
-            $this->appId . pack('N', $this->issueTs) . pack('N', $this->salt),
-            $this->appCert,
-            true,
-        );
+        // packString = uint16-LE length + raw bytes
+        $input  = pack('v', strlen($this->appId)) . $this->appId;
+        $input .= pack('V', $this->issueTs);
+        $input .= pack('V', $this->salt);
+
+        $signingKey = hash_hmac('sha256', $input, $this->appCert, true);
         return hash_hmac('sha256', $this->buildMsg(), $signingKey, true);
     }
 }

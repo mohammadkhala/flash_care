@@ -4,8 +4,7 @@ namespace App\Services\Agora;
 
 /**
  * Agora RTC service used inside AccessToken2.
- * Mirrors the official PHP SDK:
- * https://github.com/AgoraIO/Tools/tree/master/DynamicKey/AgoraDynamicKey/php
+ * All integers packed little-endian to match the official PHP SDK.
  */
 class ServiceRtc
 {
@@ -16,9 +15,6 @@ class ServiceRtc
     const PRIV_PUBLISH_AUDIO_STREAM  = 2;
     const PRIV_PUBLISH_VIDEO_STREAM  = 3;
     const PRIV_PUBLISH_DATA_STREAM   = 4;
-    const PRIV_SUBSCRIBE_AUDIO_STREAM = 5;
-    const PRIV_SUBSCRIBE_VIDEO_STREAM = 6;
-    const PRIV_SUBSCRIBE_DATA_STREAM  = 7;
 
     private string $channelName;
     private string $uid;           // uid as string; empty string means "any uid"
@@ -40,24 +36,22 @@ class ServiceRtc
         $this->privileges[$privilege] = $expireTs;
     }
 
-    /** Serialize to binary (little-endian length-prefixed strings, big-endian ints) */
+    /** Serialize to binary — all little-endian, strings length-prefixed */
     public function pack(): string
     {
-        $msg  = pack('n', $this->getServiceType());
-        $msg .= $this->packString($this->channelName);
-        $msg .= $this->packString($this->uid);
+        // service type: uint16-LE
+        $msg  = pack('v', $this->getServiceType());
 
-        ksort($this->privileges);
-        $msg .= pack('n', count($this->privileges));
+        // packString: uint16-LE length + raw bytes
+        $msg .= pack('v', strlen($this->channelName)) . $this->channelName;
+        $msg .= pack('v', strlen($this->uid))         . $this->uid;
+
+        ksort($this->privileges, SORT_NUMERIC);
+        $msg .= pack('v', count($this->privileges));   // uint16-LE count
         foreach ($this->privileges as $key => $expire) {
-            $msg .= pack('n', $key);
-            $msg .= pack('N', $expire);
+            $msg .= pack('v', $key);     // privilege code: uint16-LE
+            $msg .= pack('V', $expire);  // expire timestamp: uint32-LE
         }
         return $msg;
-    }
-
-    private function packString(string $str): string
-    {
-        return pack('n', strlen($str)) . $str;
     }
 }
