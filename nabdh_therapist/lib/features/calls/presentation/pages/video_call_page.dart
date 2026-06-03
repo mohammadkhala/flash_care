@@ -146,10 +146,28 @@ class _VideoCallPageState extends State<VideoCallPage> {
         _hangup();
       },
       onError: (err, msg) {
+        // Error 17 = ERR_INVALID_TOKEN
+        // Could mean certificate is disabled in Agora Console — retry without token
+        if (err == ErrorCodeType.errInvalidToken && (_token?.isNotEmpty ?? false)) {
+          _token = '';
+          _engine!.joinChannel(
+            token: '',
+            channelId: widget.channel,
+            uid: 0,
+            options: ChannelMediaOptions(
+              autoSubscribeAudio: true,
+              autoSubscribeVideo: widget.isVideo,
+              publishMicrophoneTrack: true,
+              publishCameraTrack: widget.isVideo,
+              clientRoleType: ClientRoleType.clientRoleBroadcaster,
+            ),
+          );
+          return;
+        }
         if (mounted) setState(() {
           _joining = false;
           _connectionError = true;
-          _connectionErrorMsg = 'كود الخطأ: $err — $msg';
+          _connectionErrorMsg = 'كود الخطأ: ${err.index} — $msg';
         });
       },
     ));
