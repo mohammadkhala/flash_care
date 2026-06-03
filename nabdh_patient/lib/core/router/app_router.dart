@@ -81,7 +81,8 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(path: '/home',         builder: (_, __) => const HomePage()),
         GoRoute(path: '/therapists',   builder: (_, __) => const TherapistListPage()),
-        GoRoute(path: '/appointments', builder: (_, __) => const AppointmentsPage()),
+        GoRoute(path: '/appointments', builder: (_, s) =>
+            AppointmentsPage(initialTabIndex: s.extra is int ? s.extra as int : 0)),
         GoRoute(path: '/reels',        builder: (_, __) => const ReelsFeedPage()),
         GoRoute(path: '/messages',     builder: (_, __) => const ConversationsPage()),
         GoRoute(path: '/profile',      builder: (_, __) => const ProfilePage()),

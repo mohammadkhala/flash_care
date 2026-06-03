@@ -13,8 +13,8 @@ String _resolveUrl(String? raw) {
   if (raw == null || raw.isEmpty) return '';
   if (raw.startsWith('http')) {
     return raw
-        .replaceFirst('http://localhost', 'http://192.168.1.3')
-        .replaceFirst('http://127.0.0.1', 'http://192.168.1.3');
+        .replaceFirst('http://localhost', 'http://192.168.1.10')
+        .replaceFirst('http://127.0.0.1', 'http://192.168.1.10');
   }
   final base = ApiClient.instance.options.baseUrl.replaceAll('/api', '');
   return '$base/storage/$raw';

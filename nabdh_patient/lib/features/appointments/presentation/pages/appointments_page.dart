@@ -8,12 +8,13 @@ import '../../../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url.replaceAll('localhost', '192.168.1.3')
-            .replaceAll('127.0.0.1', '192.168.1.3');
+  return url.replaceAll('localhost', '192.168.1.10')
+            .replaceAll('127.0.0.1', '192.168.1.10');
 }
 
 class AppointmentsPage extends StatefulWidget {
-  const AppointmentsPage({super.key});
+  final int initialTabIndex;
+  const AppointmentsPage({super.key, this.initialTabIndex = 0});
 
   @override
   State<AppointmentsPage> createState() => _AppointmentsPageState();
@@ -30,7 +31,8 @@ class _AppointmentsPageState extends State<AppointmentsPage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(
+        length: 2, vsync: this, initialIndex: widget.initialTabIndex);
     _loadUpcoming();
     _loadPast();
   }

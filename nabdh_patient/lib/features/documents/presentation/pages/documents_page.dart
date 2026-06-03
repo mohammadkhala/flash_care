@@ -10,8 +10,8 @@ import '../../../../core/theme/app_theme.dart';
 String _fixUrl(String? url) {
   if (url == null || url.isEmpty) return '';
   return url
-      .replaceAll('localhost', '192.168.1.3')
-      .replaceAll('127.0.0.1', '192.168.1.3');
+      .replaceAll('localhost', '192.168.1.10')
+      .replaceAll('127.0.0.1', '192.168.1.10');
 }
 
 class DocumentsPage extends StatefulWidget {

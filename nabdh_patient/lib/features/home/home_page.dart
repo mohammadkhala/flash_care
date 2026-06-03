@@ -11,8 +11,8 @@ import '../../core/l10n/s.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url.replaceAll('localhost', '192.168.1.3')
-            .replaceAll('127.0.0.1', '192.168.1.3');
+  return url.replaceAll('localhost', '192.168.1.10')
+            .replaceAll('127.0.0.1', '192.168.1.10');
 }
 
 class HomePage extends StatefulWidget {
@@ -314,10 +314,10 @@ class _HomePageState extends State<HomePage> {
         )),
         const SizedBox(width: 12),
         Expanded(child: _QuickAction(
-          icon: Icons.quiz_rounded,
+          icon: Icons.star_rate_rounded,
           label: S.assessments,
           color: AppColors.purple,
-          onTap: () {},
+          onTap: () => context.push('/appointments', extra: 1),
         )),
       ]),
     ]),

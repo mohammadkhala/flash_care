@@ -10,8 +10,8 @@ import '../../../messages/presentation/pages/call_screen.dart';
 
 String _resolveUrl(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url.replaceAll('localhost', '192.168.1.3')
-            .replaceAll('127.0.0.1', '192.168.1.3');
+  return url.replaceAll('localhost', '192.168.1.10')
+            .replaceAll('127.0.0.1', '192.168.1.10');
 }
 
 class AppointmentDetailPage extends StatefulWidget {
