@@ -11,7 +11,8 @@ class AgoraService {
 
   /// Fetch a short-lived RTC token for [channel] from our Laravel backend.
   /// Returns null when the backend is not configured (test / no-token mode).
-  Future<String?> fetchToken({
+  /// Throws a descriptive [Exception] on failure instead of returning null.
+  Future<String> fetchToken({
     required String channel,
     int uid = 0,
   }) async {
@@ -21,10 +22,14 @@ class AgoraService {
         data: {'channel': channel, 'uid': uid},
       );
       final token = res.data['token'] as String?;
-      return (token == null || token.isEmpty) ? null : token;
-    } catch (_) {
-      // If the endpoint is unreachable fall back to no-token mode
-      return null;
+      if (token == null || token.isEmpty) {
+        throw Exception('الخادم لم يُرجع رمزاً — تأكد من إعداد AGORA_APP_ID في .env');
+      }
+      return token;
+    } on Exception {
+      rethrow;
+    } catch (e) {
+      throw Exception('فشل جلب رمز الاتصال: $e');
     }
   }
 

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\prog2\\\\OneDrive\\\\Documenten\\\\nabd\" -Force)",
+      "Bash(git rev-list *)",
+      "Bash(flutter devices *)",
+      "Bash(adb devices *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(flutter build *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter install *)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s -o /dev/null -w \"localhost:8000 -> HTTP %{http_code}\\\\n\" http://localhost:8000/ --max-time 5)",
+      "Bash(curl -s -o /dev/null -w \"192.168.1.13:8000 -> HTTP %{http_code}\\\\n\" http://192.168.1.13:8000/ --max-time 5)"
+    ]
+  }
+}

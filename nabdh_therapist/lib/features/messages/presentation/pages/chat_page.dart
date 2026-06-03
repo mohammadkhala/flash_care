@@ -17,8 +17,8 @@ import '../../../../core/theme/app_theme.dart';
 String _fix(String? url) {
   if (url == null || url.isEmpty) return '';
   return url
-      .replaceAll('localhost', '192.168.1.3')
-      .replaceAll('127.0.0.1', '192.168.1.3');
+      .replaceAll('localhost', '192.168.1.10')
+      .replaceAll('127.0.0.1', '192.168.1.10');
 }
 
 class ChatPage extends StatefulWidget {
@@ -97,13 +97,12 @@ class _ChatPageState extends State<ChatPage> {
           ? r.data as List
           : ((r.data['data'] ?? r.data) as List? ?? []);
       final list = raw.cast<Map<String, dynamic>>();
+      // API returns newest-first. Keep that order — ListView uses reverse:true
+      // so index-0 (newest) appears at the bottom automatically.
       setState(() {
-        _msgs
-          ..clear()
-          ..addAll(list.reversed.toList()); // API returns newest-first → reverse to oldest-first
+        _msgs..clear()..addAll(list);
         _loading = false;
       });
-      _scrollBottom();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -289,6 +288,7 @@ class _ChatPageState extends State<ChatPage> {
                   )
                 : ListView.builder(
                     controller: _scroll,
+                    reverse: true,   // index-0 = newest = bottom
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) => _MessageBubble(
