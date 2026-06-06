@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -276,7 +277,19 @@ class _ReelCardState extends State<_ReelCard> {
           const SizedBox(height: 20),
           _ActionButton(
             icon: Icons.share_outlined,
-            onTap: () {},
+            onTap: () {
+              final therapist = (widget.reel['therapist'] as Map<String, dynamic>?) ?? {};
+              final therapistName = therapist['full_name'] as String? ?? therapist['name'] as String? ?? '';
+              final title = widget.reel['title'] as String? ?? '';
+              final videoUrl = _resolveUrl(widget.reel['video_url'] as String?);
+              final text = [
+                if (title.isNotEmpty) title,
+                if (therapistName.isNotEmpty) 'الأخصائي: $therapistName',
+                '📱 منصة نبض للرعاية الصحية',
+                if (videoUrl.isNotEmpty) videoUrl,
+              ].join('\n');
+              SharePlus.instance.share(ShareParams(text: text));
+            },
           ),
         ]),
       ),
