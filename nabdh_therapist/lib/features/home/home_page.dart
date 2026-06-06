@@ -241,18 +241,21 @@ class _TodayAppointments extends StatelessWidget {
 
     return Column(children: appointments.map((a) {
       final appt = a as Map;
-      final patient = (appt['patient'] as Map?)?['user'] as Map? ?? {};
+      final patient = appt['patient'] as Map? ?? {};
+      final patientName = patient['full_name'] as String?
+          ?? (patient['user'] as Map?)?['name'] as String?
+          ?? 'مريض';
       return Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
           leading: CircleAvatar(
             backgroundColor: AppColors.primary.withOpacity(0.1),
             child: Text(
-              (patient['name'] as String? ?? '?').substring(0, 1),
+              patientName.isNotEmpty ? patientName[0] : '؟',
               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
             ),
           ),
-          title: Text(patient['name'] as String? ?? 'مريض',
+          title: Text(patientName,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           subtitle: Text(appt['scheduled_at'] != null
               ? _formatTime(appt['scheduled_at'] as String)

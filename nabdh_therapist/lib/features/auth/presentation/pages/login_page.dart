@@ -92,6 +92,63 @@ class _LoginPageState extends State<LoginPage> {
     ));
   }
 
+  Future<void> _showForgotPassword(BuildContext context) async {
+    final phoneCtrl = TextEditingController(text: _phoneController.text);
+    String code     = _selectedCode;
+    bool   sending  = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 24, 24,
+            MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('استرجاع كلمة المرور',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+          const SizedBox(height: 6),
+          const Text('سيُرسل لك رمز تحقق عبر واتساب',
+              style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo', fontSize: 13)),
+          const SizedBox(height: 20),
+          _PhoneField(
+            controller: phoneCtrl,
+            selectedCode: code,
+            onCodeChanged: (c) => set(() => code = c),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.whatsapp, color: Colors.white, size: 20),
+              label: sending
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('إرسال رمز التحقق', style: TextStyle(fontFamily: 'Cairo')),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+              onPressed: sending ? null : () async {
+                final phone = phoneCtrl.text.trim();
+                if (phone.length < 9) return;
+                set(() => sending = true);
+                try {
+                  await ApiClient.instance.post('/auth/forgot-password', data: {
+                    'phone': phone, 'phone_country_code': code, 'type': 'therapist',
+                  });
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  context.push('/auth/otp', extra: '$code $phone');
+                } catch (e) {
+                  set(() => sending = false);
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('الرقم غير مسجل أو حدث خطأ')));
+                }
+              },
+            ),
+          ),
+        ]),
+      )),
+    );
+  }
+
   void _showPendingDialog() {
     showDialog(
       context: context,
@@ -171,7 +228,19 @@ class _LoginPageState extends State<LoginPage> {
                   : const Text('دخول'),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => _showForgotPassword(context),
+                icon: const Icon(Icons.whatsapp, color: Color(0xFF25D366), size: 18),
+                label: const Text(
+                  'نسيت كلمة المرور؟ استرجاع عبر واتساب',
+                  style: TextStyle(fontFamily: 'Cairo', color: Color(0xFF25D366)),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 4),
             Center(
               child: TextButton(
                 onPressed: () => context.go('/auth/register'),

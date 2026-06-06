@@ -180,10 +180,12 @@ final appRouter = GoRouter(
           path: '/assessment',
           builder: (_, state) {
             final extra = state.extra as Map<String, dynamic>? ?? {};
+            final t = extra['type'] as String? ?? 'phq9';
             return AssessmentPage(
               patientId: extra['patientId'] as int? ?? 0,
-              type: (extra['type'] as String?) == 'gad7'
-                  ? AssessmentType.gad7
+              type: t == 'gad7' ? AssessmentType.gad7
+                  : t == 'nrs'  ? AssessmentType.nrs
+                  : t == 'rom'  ? AssessmentType.rom
                   : AssessmentType.phq9,
             );
           },

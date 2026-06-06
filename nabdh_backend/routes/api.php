@@ -24,9 +24,10 @@ Route::get('pages/{slug}',  [PublicController::class, 'page']);
 
 // ─── Auth (Public) ────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
-    Route::post('send-otp',   [AuthController::class, 'sendOtp']);
-    Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
-    Route::post('login',      [AuthController::class, 'login']);
+    Route::post('send-otp',       [AuthController::class, 'sendOtp']);
+    Route::post('verify-otp',     [AuthController::class, 'verifyOtp']);
+    Route::post('login',          [AuthController::class, 'login']);
+    Route::post('forgot-password',[AuthController::class, 'forgotPassword']);
 });
 
 // ─── Auth (Protected — after OTP) ────────────────────────────
