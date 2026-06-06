@@ -288,7 +288,7 @@ class _ReelCardState extends State<_ReelCard> {
                 '📱 منصة نبض للرعاية الصحية',
                 if (videoUrl.isNotEmpty) videoUrl,
               ].join('\n');
-              SharePlus.instance.share(ShareParams(text: text));
+              Share.share(text);
             },
           ),
         ]),
