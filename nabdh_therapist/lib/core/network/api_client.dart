@@ -1,7 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
 import 'dart:io';
+
+/// Notifies GoRouter to re-evaluate the redirect when auth state changes.
+class AuthNotifier extends ChangeNotifier {
+  static final AuthNotifier instance = AuthNotifier._();
+  AuthNotifier._();
+  void notify() => notifyListeners();
+}
 
 class ApiClient {
   static Dio? _instance;
@@ -44,15 +52,29 @@ class ApiClient {
   }
 
   static Future<void> setToken(String token) async {
-    await _storage.write(key: AppConstants.tokenKey, value: token);
+    try {
+      await _storage.write(key: AppConstants.tokenKey, value: token);
+    } catch (_) {
+      await _storage.deleteAll();
+      await _storage.write(key: AppConstants.tokenKey, value: token);
+    }
   }
 
   static Future<void> clearToken() async {
-    await _storage.delete(key: AppConstants.tokenKey);
+    try {
+      await _storage.deleteAll();
+    } catch (_) {}
+    AuthNotifier.instance.notify();
   }
 
   static Future<String?> getToken() async {
-    return await _storage.read(key: AppConstants.tokenKey);
+    try {
+      return await _storage.read(key: AppConstants.tokenKey);
+    } catch (_) {
+      // Decryption error (e.g. app reinstalled with different key) — wipe and treat as logged out
+      try { await _storage.deleteAll(); } catch (_) {}
+      return null;
+    }
   }
 
   static Future<Response> multipartPost(String path, String filePath, String fieldName) async {

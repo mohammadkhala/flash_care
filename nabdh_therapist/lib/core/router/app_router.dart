@@ -37,6 +37,7 @@ import '../widgets/whatsapp_fab.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
+  refreshListenable: AuthNotifier.instance,
   redirect: (context, state) async {
     final token     = await ApiClient.getToken();
     final isAuth    = token != null;
