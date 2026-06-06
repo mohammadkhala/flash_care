@@ -120,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
           const SizedBox(height: 20),
           SizedBox(width: double.infinity,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.whatsapp, color: Colors.white, size: 20),
+              icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
               label: sending
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('إرسال رمز التحقق', style: TextStyle(fontFamily: 'Cairo')),
@@ -232,7 +232,7 @@ class _LoginPageState extends State<LoginPage> {
             Center(
               child: TextButton.icon(
                 onPressed: () => _showForgotPassword(context),
-                icon: const Icon(Icons.whatsapp, color: Color(0xFF25D366), size: 18),
+                icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 18),
                 label: const Text(
                   'نسيت كلمة المرور؟ استرجاع عبر واتساب',
                   style: TextStyle(fontFamily: 'Cairo', color: Color(0xFF25D366)),
