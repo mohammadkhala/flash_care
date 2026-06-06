@@ -34,6 +34,7 @@ import '../../features/profile/presentation/pages/static_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
+  refreshListenable: AuthNotifier.instance,
   redirect: (context, state) async {
     final token      = await ApiClient.getToken();
     final isAuth     = token != null;
