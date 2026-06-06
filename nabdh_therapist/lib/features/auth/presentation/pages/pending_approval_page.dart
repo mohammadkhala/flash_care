@@ -65,7 +65,7 @@ class PendingApprovalPage extends StatelessWidget {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    await ApiClient.clearToken();
+                    await ApiClient.clearTokenSilent();
                     if (context.mounted) context.go('/auth');
                   },
                   icon: const Icon(Icons.logout),

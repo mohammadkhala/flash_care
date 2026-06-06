@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/network/api_client.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/locale_service.dart';
@@ -20,9 +21,12 @@ void main() async {
   // Initialize FCM (gets token, registers handlers)
   await FcmService.instance.init();
 
+  // Seed AuthNotifier with persisted login state BEFORE runApp so the
+  // GoRouter synchronous redirect works correctly from the very first frame.
+  final storedToken = await ApiClient.getToken();
+  AuthNotifier.instance.initialize(storedToken != null);
+
   await NotificationService.instance.init();
-  // Wire up navigation so notification taps can route correctly
-  NotificationService.instance.setNavigator((route, [extra]) => appRouter.push(route, extra: extra));
 
   // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
   unawaited(AppSettingsService.instance.init());
@@ -31,6 +35,13 @@ void main() async {
   await LocaleService.instance.load();
 
   runApp(const NabdhTherapistApp());
+
+  // Wire up notification navigation AFTER first frame so GoRouter is mounted.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NotificationService.instance.setNavigator(
+      (route, [extra]) => appRouter.push(route, extra: extra),
+    );
+  });
 }
 
 class NabdhTherapistApp extends StatefulWidget {

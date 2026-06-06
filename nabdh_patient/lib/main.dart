@@ -6,15 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'core/constants/app_constants.dart';
 import 'core/utils/json_utils.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/network/api_client.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/locale_service.dart';
 import 'core/services/app_settings_service.dart';
+
+const _kLastShownNotifKey = 'last_shown_notif_id';
 
 // ─── WorkManager background task ─────────────────────────────────────────────
 // Must be a top-level function annotated with vm:entry-point
@@ -52,7 +56,7 @@ Future<void> _backgroundPoll() async {
     if (count <= 0) return;
 
     // Fetch latest notifications
-    final listRes = await dio.get('/notifications', queryParameters: {'per_page': 5});
+    final listRes = await dio.get('/notifications', queryParameters: {'per_page': 10});
     final raw  = listRes.data;
     final list = ((raw is Map ? raw['data'] : raw) as List?) ?? [];
 
@@ -63,20 +67,29 @@ Future<void> _backgroundPoll() async {
       onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
     );
 
+    // Read the last notification ID we already showed — only show newer ones.
+    final prefs = await SharedPreferences.getInstance();
+    final lastShownId = prefs.getInt(_kLastShownNotifKey) ?? 0;
+    int maxIdSeen = lastShownId;
+
     for (final item in list) {
       final n = item as Map<String, dynamic>;
       if (n['read_at'] != null) continue;
+
+      final notifId = jsonInt(n['id']);
+      // Skip notifications we already showed in a previous background poll
+      if (notifId <= lastShownId) continue;
+      if (notifId > maxIdSeen) maxIdSeen = notifId;
 
       final dataField = n['data'];
       final dataMap   = dataField is Map
           ? dataField.cast<String, dynamic>()
           : <String, dynamic>{};
 
-      final aptId   = dataMap['appointment_id'];
-      final payload = aptId != null ? 'appointment:$aptId' : null;
+      final payload = NotificationService.buildPayloadFromData(dataMap);
 
       await plugin.show(
-        jsonInt(n['id']),
+        notifId,
         n['title'] as String? ?? 'نبض',
         n['body']  as String? ?? '',
         const NotificationDetails(
@@ -89,6 +102,11 @@ Future<void> _backgroundPoll() async {
         ),
         payload: payload,
       );
+    }
+
+    // Persist the highest ID we've shown so we don't repeat it
+    if (maxIdSeen > lastShownId) {
+      await prefs.setInt(_kLastShownNotifKey, maxIdSeen);
     }
   } catch (_) {}
 }
@@ -103,6 +121,11 @@ void main() async {
 
   // Initialize FCM (gets token, registers handlers)
   await FcmService.instance.init();
+
+  // Seed AuthNotifier with persisted login state BEFORE runApp so the
+  // GoRouter synchronous redirect works correctly from the very first frame.
+  final storedToken = await ApiClient.getToken();
+  AuthNotifier.instance.initialize(storedToken != null);
 
   // Initialise local notifications + polling
   await NotificationService.instance.init();
@@ -125,10 +148,16 @@ void main() async {
   // Load saved locale
   await LocaleService.instance.load();
 
-  // Wire up navigation BEFORE runApp so the pending-payload check works
-  NotificationService.instance.setNavigator((route, [extra]) => appRouter.push(route, extra: extra));
-
   runApp(const NabdhPatientApp());
+
+  // Wire up navigation AFTER first frame so GoRouter is fully mounted.
+  // The pending payload (from a cold-start notification tap) is stored in
+  // NotificationService and will be consumed once setNavigator is called.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NotificationService.instance.setNavigator(
+      (route, [extra]) => appRouter.push(route, extra: extra),
+    );
+  });
 }
 
 class NabdhPatientApp extends StatefulWidget {

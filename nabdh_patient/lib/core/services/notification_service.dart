@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../utils/json_utils.dart';
+
+const _kLastShownNotifKey = 'last_shown_notif_id';
 
 class NotificationService {
   NotificationService._();
@@ -11,6 +14,7 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   final _unreadCount = ValueNotifier<int>(0);
   Timer? _pollTimer;
+  bool _initialPollDone = false; // skip first poll to avoid showing old notifications on launch
 
   /// Set by main.dart after appRouter is ready — avoids circular imports.
   void Function(String route, [Object? extra])? _navigate;
@@ -18,10 +22,15 @@ class NotificationService {
   /// Payload from a background/closed-app tap — consumed once.
   static String? _pendingPayload;
 
+  /// True if app was launched by tapping a notification (cold start).
+  /// Set before runApp so SplashPage can read it synchronously.
+  static bool hadPendingAtStartup = false;
+
   ValueNotifier<int> get unreadCount => _unreadCount;
 
   static void storePendingPayload(String? payload) {
     _pendingPayload = payload;
+    if (payload != null) hadPendingAtStartup = true;
   }
 
   /// Wire up navigation after GoRouter is ready.
@@ -30,7 +39,8 @@ class NotificationService {
     final pending = _pendingPayload;
     if (pending != null) {
       _pendingPayload = null;
-      _handlePayload(pending);
+      // Delay long enough for splash to reach /home (300ms) + render settle (300ms)
+      Future.delayed(const Duration(milliseconds: 600), () => _handlePayload(pending));
     }
   }
 
@@ -71,7 +81,10 @@ class NotificationService {
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
-      if (payload != null) _pendingPayload = payload;
+      if (payload != null) {
+        _pendingPayload = payload;
+        hadPendingAtStartup = true; // tell SplashPage to navigate quickly
+      }
     }
 
     _startPolling();
@@ -120,7 +133,10 @@ class NotificationService {
     }
   }
 
-  String _payloadToRoute(String payload) {
+  String _payloadToRoute(String payload) => payloadToRoute(payload);
+
+  /// Public static version — used by NotificationsPage to navigate on tap.
+  static String payloadToRoute(String payload) {
     if (payload.startsWith('appointment:')) {
       return '/appointments/${payload.substring('appointment:'.length)}';
     }
@@ -180,16 +196,32 @@ class NotificationService {
       final prev  = _unreadCount.value;
       _unreadCount.value = count;
 
-      // 2. Only fetch & display when count rose
+      // 2. First poll after launch: record baseline count only — don't show anything
+      //    This prevents replaying all existing unread notifications on every app open.
+      if (!_initialPollDone) {
+        _initialPollDone = true;
+        return;
+      }
+
+      // 3. Only fetch & display when count rose since last check
       if (count > prev) {
         final listRes = await ApiClient.instance.get(
           '/notifications', queryParameters: {'per_page': 10});
         final raw = listRes.data;
         final list = ((raw is Map ? raw['data'] : raw) as List?) ?? [];
 
+        // Only show notifications with ID higher than the last one we showed
+        final prefs = await SharedPreferences.getInstance();
+        final lastShownId = prefs.getInt(_kLastShownNotifKey) ?? 0;
+        int maxIdSeen = lastShownId;
+
         for (final item in list) {
           final n = item as Map<String, dynamic>;
           if (n['read_at'] != null) continue;
+
+          final notifId = jsonInt(n['id']);
+          if (notifId <= lastShownId) continue; // already shown before
+          if (notifId > maxIdSeen) maxIdSeen = notifId;
 
           final dataField = n['data'];
           final dataMap   = dataField is Map
@@ -199,11 +231,15 @@ class NotificationService {
           final payload = buildPayloadFromData(dataMap);
 
           await _showNotification(
-            id:      jsonInt(n['id']),
+            id:      notifId,
             title:   n['title']  as String? ?? 'نبض',
             body:    n['body']   as String? ?? '',
             payload: payload,
           );
+        }
+
+        if (maxIdSeen > lastShownId) {
+          await prefs.setInt(_kLastShownNotifKey, maxIdSeen);
         }
       }
     } catch (_) {}

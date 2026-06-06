@@ -92,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     try {
       await ApiClient.instance.delete('/account', data: {'password': passCtrl.text});
-      await ApiClient.clearToken();
+      await ApiClient.clearTokenSilent();
       if (!mounted) return;
       context.go('/auth');
     } on DioException catch (e) {
@@ -111,20 +111,22 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('تسجيل الخروج'),
       content: const Text('هل تريد تسجيل الخروج؟'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-        TextButton(onPressed: () => Navigator.pop(context, true),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true),
             child: const Text('خروج', style: TextStyle(color: AppColors.error))),
       ],
     ));
-    if (ok == true && mounted) {
-      try { await ApiClient.instance.post('/logout'); } catch (_) {}
-      await ApiClient.clearToken();
-      if (mounted) context.go('/auth');
+    if (ok == true) {
+      // Fire-and-forget — don't await so the 401 interceptor can't race with our navigation
+      ApiClient.instance.post('/logout').catchError((_) {});
+      await ApiClient.clearTokenSilent();
+      if (!mounted) return;
+      context.go('/auth');
     }
   }
 

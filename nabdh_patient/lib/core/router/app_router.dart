@@ -35,11 +35,11 @@ import '../../features/profile/presentation/pages/static_page.dart';
 final appRouter = GoRouter(
   initialLocation: '/splash',
   refreshListenable: AuthNotifier.instance,
-  redirect: (context, state) async {
-    final token      = await ApiClient.getToken();
-    final isAuth     = token != null;
-    final loc        = state.matchedLocation;
-    final isSplash   = loc == '/splash';
+  redirect: (context, state) {
+    // Synchronous — AuthNotifier tracks state in memory, no async needed.
+    final isAuth      = AuthNotifier.instance.isAuthenticated;
+    final loc         = state.matchedLocation;
+    final isSplash    = loc == '/splash';
     final isAuthRoute = loc.startsWith('/auth');
 
     // Routes that authenticated users are still allowed on (mid-registration flow)
@@ -49,8 +49,8 @@ final appRouter = GoRouter(
 
     final isOnboarding = loc == '/onboarding';
 
-    if (isSplash || isOnboarding)              return null;
-    if (!isAuth && !isAuthRoute)               return '/auth';
+    if (isSplash || isOnboarding)                return null;
+    if (!isAuth && !isAuthRoute)                 return '/auth';
     if (isAuth  && isAuthRoute && !isSetupRoute) return '/home';
     return null;
   },

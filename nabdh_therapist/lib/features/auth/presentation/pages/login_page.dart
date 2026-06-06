@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
         'type':               'therapist',
       });
 
-      await ApiClient.setToken(res.data['token']);
+      await ApiClient.setToken(res.data['token']); // triggers AuthNotifier → GoRouter redirects
       unawaited(FcmService.instance.refreshToken());
       if (!mounted) return;
 
@@ -53,9 +53,8 @@ class _LoginPageState extends State<LoginPage> {
         context.go('/auth/setup');
       } else if (res.data['is_approved'] == false) {
         _showPendingDialog();
-      } else {
-        context.go('/home');
       }
+      // else: GoRouter redirect handles /home automatically via AuthNotifier.notify()
     } on DioException catch (e) {
       String msg = 'رقم الهاتف أو كلمة المرور غير صحيحة';
       if (e.type == DioExceptionType.connectionTimeout ||

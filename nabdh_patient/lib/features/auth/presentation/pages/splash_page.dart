@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nabd_logo.dart';
 
@@ -41,7 +42,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 2200));
+    // If the app was opened by tapping a notification, skip the long animation
+    // so the notification's push() fires AFTER we've reached /home.
+    final hasNotif = NotificationService.hadPendingAtStartup;
+    await Future.delayed(Duration(milliseconds: hasNotif ? 300 : 2200));
     if (!mounted) return;
     final token  = await ApiClient.getToken();
     final prefs  = await SharedPreferences.getInstance();

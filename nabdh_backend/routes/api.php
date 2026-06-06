@@ -106,6 +106,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('assessments', [\App\Http\Controllers\Therapist\AssessmentController::class, 'index']);
         Route::post('assessments', [\App\Http\Controllers\Therapist\AssessmentController::class, 'store']);
 
+        // Patient medical documents (therapist can view if they share an appointment)
+        Route::get('patients/{patient}/documents', [TherapistDocumentController::class, 'patientDocuments']);
+
         // Patients list (for starting conversations)
         // Shows ALL registered patients so therapists can initiate contact
         Route::get('patients', function () {

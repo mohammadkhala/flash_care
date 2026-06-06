@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -112,7 +113,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   }
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    onTap: () => _markOne(jsonInt(n['id']), i),
+                    onTap: () {
+                      _markOne(jsonInt(n['id']), i);
+                      // Navigate to the relevant content
+                      final dataField = n['data'];
+                      final dataMap = dataField is Map
+                          ? dataField.cast<String, dynamic>()
+                          : <String, dynamic>{};
+                      final payload = NotificationService.buildPayloadFromData(dataMap);
+                      if (payload != null && !payload.startsWith('call:')) {
+                        final route = NotificationService.payloadToRoute(payload);
+                        if (route != '/notifications') {
+                          context.push(route);
+                        }
+                      }
+                    },
                     tileColor: isRead ? null : AppColors.primary.withOpacity(0.03),
                     leading: Container(
                       width: 44, height: 44,

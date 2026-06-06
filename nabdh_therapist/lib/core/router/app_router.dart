@@ -38,17 +38,16 @@ import '../widgets/whatsapp_fab.dart';
 final appRouter = GoRouter(
   initialLocation: '/splash',
   refreshListenable: AuthNotifier.instance,
-  redirect: (context, state) async {
-    final token     = await ApiClient.getToken();
-    final isAuth    = token != null;
-    final loc       = state.matchedLocation;
+  redirect: (context, state) {
+    // Synchronous — no async needed, AuthNotifier tracks state in memory.
+    final isAuth          = AuthNotifier.instance.isAuthenticated;
+    final loc             = state.matchedLocation;
     final isAuthRoute     = loc.startsWith('/auth');
     final isSplash        = loc == '/splash';
     final isPostAuthSetup = loc == '/auth/set-password' ||
                             loc == '/auth/setup'        ||
                             loc == '/auth/pending';
-
-    final isOnboarding = loc == '/onboarding';
+    final isOnboarding    = loc == '/onboarding';
 
     if (isSplash || isPostAuthSetup || isOnboarding) return null;
     if (!isAuth && !isAuthRoute) return '/auth';
