@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
 String _fix(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url.replaceAll('localhost', '192.168.1.10')
-            .replaceAll('127.0.0.1', '192.168.1.10');
+  // Extract host:port from baseUrl (e.g. http://10.0.2.2:8000/api → http://10.0.2.2:8000)
+  final base = AppConstants.baseUrl.replaceAll('/api', '');
+  return url
+      .replaceAll('http://localhost:8000', base)
+      .replaceAll('http://127.0.0.1:8000', base);
 }
 
 class CreateProgramPage extends StatefulWidget {
