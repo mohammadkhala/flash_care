@@ -204,14 +204,8 @@ class _TherapistMapPageState extends State<TherapistMapPage>
         icon: BitmapDescriptor.defaultMarkerWithHue(
           isSelected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueViolet,
         ),
-        // No InfoWindow — the card below is the UI
-        onTap: () {
-          if (isSelected) {
-            _closeCard();
-          } else {
-            _selectTherapist(t);
-          }
-        },
+        // No InfoWindow — card below handles UI
+        onTap: () => _selectTherapist(t),
       ));
     }
     return markers;
@@ -250,8 +244,7 @@ class _TherapistMapPageState extends State<TherapistMapPage>
           myLocationButtonEnabled: false,
           zoomControlsEnabled: false,
           mapToolbarEnabled: false,
-          // Tap on map background → close card
-          onTap: (_) { if (hasCard) _closeCard(); },
+          onTap: (_) => _closeCard(),
         ),
 
         // ── Loading overlay ─────────────────────────────────────────────

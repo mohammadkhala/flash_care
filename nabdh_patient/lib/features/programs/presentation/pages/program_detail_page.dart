@@ -1,9 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+
+/// Fix server URLs: replace localhost/127.0.0.1 with the real device IP
+String _fixUrl(String? url) {
+  if (url == null || url.isEmpty) return '';
+  final base = AppConstants.baseUrl.replaceAll('/api', ''); // e.g. http://192.168.1.9:8000
+  return url
+      .replaceAll('http://localhost:8000', base)
+      .replaceAll('http://127.0.0.1:8000', base);
+}
 
 class ProgramDetailPage extends StatefulWidget {
   final int id;
@@ -182,68 +193,114 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = exercise['completed'] == true;
-    final title = exercise['title'] as String? ?? exercise['name'] as String? ?? 'تمرين';
+    final completed   = exercise['completed'] == true;
+    final title       = exercise['title'] as String? ?? exercise['name'] as String? ?? 'تمرين';
     final description = exercise['description'] as String? ?? '';
     final String? duration = exercise['duration'] as String? ??
       (exercise['duration_minutes'] != null ? '${exercise['duration_minutes']} دقيقة' : null);
-    final reps = jsonInt(exercise['repetitions'], jsonInt(exercise['reps']));
+    final reps      = jsonInt(exercise['repetitions'], jsonInt(exercise['reps']));
+    final mediaType = exercise['media_type'] as String? ?? 'none';
+    final mediaUrl  = _fixUrl(exercise['media_url'] as String?);
+    final mediaName = exercise['media_name'] as String?;
+    final hasMedia  = mediaType != 'none' && mediaType != null && mediaUrl.isNotEmpty;
 
-    return GestureDetector(
-      onTap: onToggle,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: completed ? AppColors.successLight : AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: completed ? AppColors.success.withOpacity(0.4) : AppColors.border),
-        ),
-        child: Row(children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 28, height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: completed ? AppColors.success : AppColors.borderLight,
-            ),
-            child: isToggling
-              ? const Padding(padding: EdgeInsets.all(4),
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Icon(
-                  completed ? Icons.check_rounded : Icons.radio_button_unchecked_rounded,
-                  color: completed ? Colors.white : AppColors.textHint,
-                  size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(
-              fontWeight: FontWeight.w700, fontSize: 14,
-              color: completed ? AppColors.success : AppColors.textPrimary,
-              decoration: completed ? TextDecoration.lineThrough : null)),
-            if (description.isNotEmpty) ...[
-              const SizedBox(height: 3),
-              Text(description,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-            ],
-            Row(children: [
-              if (duration != null) ...[
-                const Icon(Icons.access_time, size: 12, color: AppColors.textHint),
-                const SizedBox(width: 3),
-                Text(duration, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
-                const SizedBox(width: 10),
-              ],
-              if (reps != null) ...[
-                const Icon(Icons.repeat_rounded, size: 12, color: AppColors.textHint),
-                const SizedBox(width: 3),
-                Text('$reps تكرار', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
-              ],
-            ]),
-          ])),
-        ]),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: completed ? AppColors.successLight : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: completed ? AppColors.success.withOpacity(0.4) : AppColors.border),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Row: checkbox + text ──────────────────────────────
+        GestureDetector(
+          onTap: onToggle,
+          child: Row(children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: completed ? AppColors.success : AppColors.borderLight,
+              ),
+              child: isToggling
+                ? const Padding(padding: EdgeInsets.all(4),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Icon(
+                    completed ? Icons.check_rounded : Icons.radio_button_unchecked_rounded,
+                    color: completed ? Colors.white : AppColors.textHint,
+                    size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 14,
+                color: completed ? AppColors.success : AppColors.textPrimary,
+                decoration: completed ? TextDecoration.lineThrough : null)),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(description,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+              Row(children: [
+                if (duration != null) ...[
+                  const Icon(Icons.access_time, size: 12, color: AppColors.textHint),
+                  const SizedBox(width: 3),
+                  Text(duration, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                  const SizedBox(width: 10),
+                ],
+                if (reps != null) ...[
+                  const Icon(Icons.repeat_rounded, size: 12, color: AppColors.textHint),
+                  const SizedBox(width: 3),
+                  Text('$reps تكرار', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                ],
+              ]),
+            ])),
+          ]),
+        ),
+
+        // ── Media attachment ──────────────────────────────────
+        if (hasMedia) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () async {
+              final uri = Uri.tryParse(mediaUrl);
+              if (uri != null && await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+              ),
+              child: Row(children: [
+                Icon(
+                  mediaType == 'image' ? Icons.image_outlined
+                    : mediaType == 'video' ? Icons.videocam_outlined
+                    : mediaType == 'link'  ? Icons.link_rounded
+                    : Icons.insert_drive_file_outlined,
+                  size: 18, color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                  mediaName ?? (mediaType == 'link' ? mediaUrl : 'عرض الملف'),
+                  style: const TextStyle(
+                    fontSize: 12, color: AppColors.primary,
+                    fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                )),
+                const Icon(Icons.open_in_new_rounded, size: 14, color: AppColors.primary),
+              ]),
+            ),
+          ),
+        ],
+      ]),
     );
   }
 }
