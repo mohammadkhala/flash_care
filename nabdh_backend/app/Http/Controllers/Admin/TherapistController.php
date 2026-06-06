@@ -174,7 +174,8 @@ class TherapistController extends Controller
     public function toggleFeatured(Therapist $therapist)
     {
         $therapist->update(['is_featured' => !$therapist->is_featured]);
-        return response()->json(['is_featured' => $therapist->is_featured]);
+        $label = $therapist->is_featured ? 'تم تمييز الأخصائي ⭐' : 'تم إلغاء تمييز الأخصائي';
+        return back()->with('success', $label);
     }
 
     public function toggleActive(Therapist $therapist)
