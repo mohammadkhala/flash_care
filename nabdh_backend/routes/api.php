@@ -122,6 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('home-programs', [HomeProgramController::class, 'index']);
         Route::post('home-programs', [HomeProgramController::class, 'store']);
         Route::get('home-programs/patient/{patientId}', [HomeProgramController::class, 'patientPrograms']);
+        Route::put('home-programs/{program}', [HomeProgramController::class, 'update']);
         Route::delete('home-programs/{program}', [HomeProgramController::class, 'destroy']);
         Route::post('exercises/upload', [HomeProgramController::class, 'uploadExerciseMedia']);
 

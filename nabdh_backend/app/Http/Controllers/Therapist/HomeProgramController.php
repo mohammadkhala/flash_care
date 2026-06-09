@@ -98,6 +98,19 @@ class HomeProgramController extends Controller
         return response()->json(['programs' => $programs]);
     }
 
+    public function update(Request $request, HomeProgram $program): JsonResponse
+    {
+        abort_if($program->therapist_id !== $request->user()->therapist->id, 403);
+        $request->validate([
+            'title'       => 'sometimes|required|string|max:200',
+            'description' => 'nullable|string',
+            'start_date'  => 'sometimes|required|date',
+            'end_date'    => 'nullable|date',
+        ]);
+        $program->update($request->only(['title', 'description', 'start_date', 'end_date']));
+        return response()->json(['program' => $program->load('exercises')]);
+    }
+
     public function destroy(HomeProgram $program): JsonResponse
     {
         abort_if($program->therapist_id !== request()->user()->therapist->id, 403);

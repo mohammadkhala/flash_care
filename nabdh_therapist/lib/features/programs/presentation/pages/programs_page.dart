@@ -25,19 +25,59 @@ class _ProgramsPageState extends State<ProgramsPage> {
   }
 
   Future<void> _delete(int id) async {
-    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('حذف البرنامج'),
       content: const Text('هل تريد حذف هذا البرنامج؟'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-        TextButton(onPressed: () => Navigator.pop(context, true),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true),
             child: const Text('حذف', style: TextStyle(color: AppColors.error))),
       ],
     ));
     if (ok == true) {
-      await ApiClient.instance.delete('/therapist/home-programs/$id');
+      try {
+        await ApiClient.instance.delete('/therapist/home-programs/$id');
+      } catch (_) {}
       _load();
     }
+  }
+
+  Future<void> _editProgram(Map program) async {
+    final titleCtrl = TextEditingController(text: program['title'] as String? ?? '');
+    final descCtrl  = TextEditingController(text: program['description'] as String? ?? '');
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تعديل البرنامج'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: titleCtrl,
+            decoration: const InputDecoration(labelText: 'العنوان', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descCtrl,
+            decoration: const InputDecoration(labelText: 'الوصف', border: OutlineInputBorder()),
+            maxLines: 3,
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (result == true) {
+      try {
+        await ApiClient.instance.put('/therapist/home-programs/${program['id']}', data: {
+          'title': titleCtrl.text.trim(),
+          'description': descCtrl.text.trim(),
+        });
+        _load();
+      } catch (_) {}
+    }
+    titleCtrl.dispose();
+    descCtrl.dispose();
   }
 
   @override
@@ -70,6 +110,10 @@ class _ProgramsPageState extends State<ProgramsPage> {
                           Row(children: [
                             Expanded(child: Text(p['title'] ?? '',
                                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                              onPressed: () => _editProgram(p),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, color: AppColors.error),
                               onPressed: () => _delete(p['id'] as int),

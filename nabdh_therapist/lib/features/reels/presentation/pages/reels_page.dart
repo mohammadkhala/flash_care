@@ -219,7 +219,7 @@ class _MyReelsTabState extends State<_MyReelsTab>
   Future<void> _delete(int id) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -229,11 +229,11 @@ class _MyReelsTabState extends State<_MyReelsTab>
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('إلغاء',
                   style: TextStyle(color: Colors.white54))),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('حذف',
                   style: TextStyle(color: Colors.redAccent))),
         ],
