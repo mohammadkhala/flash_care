@@ -7,13 +7,31 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
 
-/// Fix server URLs: replace localhost/127.0.0.1 with the real device IP
+/// Re-anchor a server-supplied media URL onto the API host.
+///
+/// The server may hand back a URL built from a stale APP_URL (localhost, an old
+/// LAN IP) or a bare relative path — all of which are unreachable from a phone.
+/// Only the path is trusted; the host always comes from [AppConstants.baseUrl].
 String _fixUrl(String? url) {
   if (url == null || url.isEmpty) return '';
-  final base = AppConstants.baseUrl.replaceAll('/api', ''); // e.g. http://192.168.1.9:8000
-  return url
-      .replaceAll('http://localhost:8000', base)
-      .replaceAll('http://127.0.0.1:8000', base);
+  final base = AppConstants.baseUrl.replaceAll('/api', '');
+
+  // Relative path (e.g. /storage/exercises/...) → just prefix the host.
+  if (url.startsWith('/')) return '$base$url';
+
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme) return '$base/${url.replaceFirst(RegExp('^/+'), '')}';
+
+  // Any loopback / private-LAN host is unreachable from the device: keep the
+  // path, swap the origin. Public hosts are left untouched.
+  const localHosts = {'localhost', '127.0.0.1', '10.0.2.2', '0.0.0.0'};
+  final isPrivateLan = RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)')
+      .hasMatch(uri.host);
+  if (localHosts.contains(uri.host) || isPrivateLan) {
+    final tail = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+    return '$base$tail';
+  }
+  return url;
 }
 
 class ProgramDetailPage extends StatefulWidget {
@@ -180,6 +198,33 @@ class _ProgramDetailPageState extends State<ProgramDetailPage> {
   }
 }
 
+/// Open an attachment, falling back through launch modes before giving up.
+///
+/// `canLaunchUrl` returns false on Android when no matching `<queries>` intent is
+/// declared, which used to make the tap do nothing at all. Attempting the launch
+/// and reporting a real failure is far more useful than silence.
+Future<void> _openMedia(BuildContext context, String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) {
+    _mediaError(context, 'رابط الملف غير صالح');
+    return;
+  }
+  for (final mode in [LaunchMode.externalApplication, LaunchMode.platformDefault]) {
+    try {
+      if (await launchUrl(uri, mode: mode)) return;
+    } catch (_) {
+      // Try the next mode.
+    }
+  }
+  if (context.mounted) _mediaError(context, 'لا يوجد تطبيق يستطيع فتح هذا الملف');
+}
+
+void _mediaError(BuildContext context, String msg) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+}
+
 class _ExerciseCard extends StatelessWidget {
   final Map<String, dynamic> exercise;
   final VoidCallback onToggle;
@@ -202,7 +247,7 @@ class _ExerciseCard extends StatelessWidget {
     final mediaType = exercise['media_type'] as String? ?? 'none';
     final mediaUrl  = _fixUrl(exercise['media_url'] as String?);
     final mediaName = exercise['media_name'] as String?;
-    final hasMedia  = mediaType != 'none' && mediaType != null && mediaUrl.isNotEmpty;
+    final hasMedia  = mediaType != 'none' && mediaUrl.isNotEmpty;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -252,7 +297,7 @@ class _ExerciseCard extends StatelessWidget {
                   Text(duration, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
                   const SizedBox(width: 10),
                 ],
-                if (reps != null) ...[
+                if (reps > 0) ...[
                   const Icon(Icons.repeat_rounded, size: 12, color: AppColors.textHint),
                   const SizedBox(width: 3),
                   Text('$reps تكرار', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
@@ -265,13 +310,38 @@ class _ExerciseCard extends StatelessWidget {
         // ── Media attachment ──────────────────────────────────
         if (hasMedia) ...[
           const SizedBox(height: 10),
+          if (mediaType == 'image') ...[
+            GestureDetector(
+              onTap: () => _openMedia(context, mediaUrl),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  mediaUrl,
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          height: 160,
+                          alignment: Alignment.center,
+                          color: AppColors.borderLight,
+                          child: const CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 160,
+                    alignment: Alignment.center,
+                    color: AppColors.borderLight,
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: AppColors.textHint, size: 32),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           GestureDetector(
-            onTap: () async {
-              final uri = Uri.tryParse(mediaUrl);
-              if (uri != null && await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
+            onTap: () => _openMedia(context, mediaUrl),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
