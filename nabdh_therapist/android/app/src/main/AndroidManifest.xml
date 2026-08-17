@@ -54,6 +54,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyAFNVsGt3bpV9z9SDwzSPX4uU5s8w-zBYA"/>
+        <!-- Channel used when a background FCM notification does not name one;
+             without this Android falls back to a silent low-importance channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="nabdh_therapist_channel"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

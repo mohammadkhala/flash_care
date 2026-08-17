@@ -217,6 +217,17 @@ Route::middleware('auth:sanctum')->group(function () {
             ->update(['read_at' => now()]);
         return response()->json(['ok' => true]);
     });
+    // Clear already-read notifications so the list stays manageable.
+    Route::delete('notifications/read', function () {
+        $deleted = \App\Models\PushNotification::where('user_id', request()->user()->id)
+            ->whereNotNull('read_at')->delete();
+        return response()->json(['ok' => true, 'deleted' => $deleted]);
+    });
+    Route::delete('notifications/{id}', function (string $id) {
+        \App\Models\PushNotification::where('user_id', request()->user()->id)
+            ->where('id', $id)->delete();
+        return response()->json(['ok' => true]);
+    });
 });
 
 // ─── Admin Routes ─────────────────────────────────────────────

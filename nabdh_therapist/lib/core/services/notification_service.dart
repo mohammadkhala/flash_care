@@ -116,7 +116,10 @@ class NotificationService {
     }
   }
 
-  String _payloadToRoute(String payload) {
+  String _payloadToRoute(String payload) => payloadToRoute(payload);
+
+  /// Public static version — used by NotificationsPage to navigate on tap.
+  static String payloadToRoute(String payload) {
     if (payload.startsWith('appointment:')) {
       return '/appointments/${payload.substring('appointment:'.length)}';
     }

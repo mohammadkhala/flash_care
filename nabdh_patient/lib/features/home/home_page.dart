@@ -258,7 +258,9 @@ class _HomePageState extends State<HomePage> {
         Text(S.nextAppointment,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         const SizedBox(height: 10),
-        Container(
+        GestureDetector(
+          onTap: () => context.push('/appointments/${appt['id']}'),
+          child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: AppGradients.card,
@@ -292,6 +294,7 @@ class _HomePageState extends State<HomePage> {
             ])),
             const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
           ]),
+        ),
         ),
       ]),
     );
