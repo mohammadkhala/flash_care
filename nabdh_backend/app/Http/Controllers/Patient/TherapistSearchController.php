@@ -131,7 +131,13 @@ class TherapistSearchController extends Controller
 
     /**
      * GET /therapists/nearby?lat=&lng=&radius=50
-     * Returns approved therapists within radius (km) with coordinates, sorted by distance.
+     * Returns approved therapists within radius (km), sorted by distance.
+     *
+     * A therapist's position is resolved in order of precision: their own
+     * latitude/longitude, then a clinic's, then the centre of their city. Most
+     * therapists never set explicit coordinates, and requiring them left the
+     * map completely empty — the city fallback keeps them visible, flagged via
+     * `location_precision` so the client can show it as approximate.
      */
     public function nearby(Request $request): JsonResponse
     {
@@ -145,41 +151,107 @@ class TherapistSearchController extends Controller
         $lng    = (float) $request->lng;
         $radius = (float) ($request->radius ?? 50);
 
-        // Haversine formula via raw SQL
         $therapists = Therapist::where('is_approved', true)
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->with(['specializations:id,name_ar,name_en', 'clinics:id,therapist_id,name,address,latitude,longitude'])
-            ->selectRaw("
-                therapists.*,
-                ( 6371 * acos(
-                    cos(radians(?)) * cos(radians(latitude))
-                    * cos(radians(longitude) - radians(?))
-                    + sin(radians(?)) * sin(radians(latitude))
-                )) AS distance_km
-            ", [$lat, $lng, $lat])
-            ->having('distance_km', '<=', $radius)
-            ->orderBy('distance_km')
-            ->limit(50)
+            ->with(['specializations:id,name_ar,name_en', 'clinics:id,therapist_id,name,address,city,latitude,longitude'])
             ->get()
-            ->map(fn($t) => [
-                'id'             => $t->id,
-                'full_name'      => $t->full_name,
-                'title'          => $t->title,
-                'avatar'         => $t->avatar,
-                'rating_average' => $t->rating_average,
-                'rating_count'   => $t->rating_count,
-                'city'           => $t->city,
-                'latitude'       => (float) $t->latitude,
-                'longitude'      => (float) $t->longitude,
-                'distance_km'    => round($t->distance_km, 1),
-                'accepts_online' => (bool) $t->accepts_online,
-                'accepts_in_person' => (bool) $t->accepts_in_person,
-                'specializations'   => $t->specializations->map(fn($s) => $s->name_ar)->toArray(),
-                'clinics'           => $t->clinics,
-            ]);
+            ->map(function ($t) {
+                [$tLat, $tLng, $precision] = $this->resolveLocation($t);
+                if ($tLat === null || $tLng === null) {
+                    return null;
+                }
+
+                return [
+                    'therapist'  => $t,
+                    'lat'        => $tLat,
+                    'lng'        => $tLng,
+                    'precision'  => $precision,
+                ];
+            })
+            ->filter()
+            ->map(function (array $row) use ($lat, $lng) {
+                $row['distance'] = $this->haversineKm($lat, $lng, $row['lat'], $row['lng']);
+                return $row;
+            })
+            ->filter(fn(array $row) => $row['distance'] <= $radius)
+            ->sortBy('distance')
+            ->take(50)
+            ->map(function (array $row) {
+                $t = $row['therapist'];
+
+                return [
+                    'id'                 => $t->id,
+                    'full_name'          => $t->full_name,
+                    'title'              => $t->title,
+                    'avatar'             => $t->avatar,
+                    'rating_average'     => $t->rating_average,
+                    'rating_count'       => $t->rating_count,
+                    'city'               => $t->city,
+                    'latitude'           => $row['lat'],
+                    'longitude'          => $row['lng'],
+                    'distance_km'        => round($row['distance'], 1),
+                    'location_precision' => $row['precision'], // exact | clinic | city
+                    'accepts_online'     => (bool) $t->accepts_online,
+                    'accepts_in_person'  => (bool) $t->accepts_in_person,
+                    'specializations'    => $t->specializations->map(fn($s) => $s->name_ar)->toArray(),
+                    'clinics'            => $t->clinics,
+                ];
+            })
+            ->values();
 
         return response()->json($therapists);
+    }
+
+    /**
+     * Best-known position for a therapist.
+     *
+     * @return array{0: float|null, 1: float|null, 2: string} [lat, lng, precision]
+     */
+    private function resolveLocation(Therapist $t): array
+    {
+        if ($t->latitude !== null && $t->longitude !== null) {
+            return [(float) $t->latitude, (float) $t->longitude, 'exact'];
+        }
+
+        $clinic = $t->clinics->first(fn($c) => $c->latitude !== null && $c->longitude !== null);
+        if ($clinic) {
+            return [(float) $clinic->latitude, (float) $clinic->longitude, 'clinic'];
+        }
+
+        // Try the therapist's city, then any city recorded on their clinics.
+        $candidates = array_filter(array_merge(
+            [$t->city],
+            $t->clinics->pluck('city')->all(),
+            $t->clinics->pluck('address')->all(),
+        ));
+
+        foreach ($candidates as $candidate) {
+            if ($coords = \App\Support\CityCoordinates::lookup($candidate)) {
+                // Every therapist in one city would otherwise land on the exact
+                // same pin, hiding all but one. Scatter them by a small amount
+                // derived from the id so a given therapist stays put between
+                // requests instead of jumping around the map.
+                $offsetLat = ((($t->id * 37) % 100) - 50) / 100 * 0.02; // ±0.01°  (~1.1 km)
+                $offsetLng = ((($t->id * 61) % 100) - 50) / 100 * 0.02;
+
+                return [$coords['lat'] + $offsetLat, $coords['lng'] + $offsetLng, 'city'];
+            }
+        }
+
+        return [null, null, 'unknown'];
+    }
+
+    /** Great-circle distance in kilometres. */
+    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadius = 6371.0;
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+           + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     public function availableSlots(Request $request, Therapist $therapist): JsonResponse

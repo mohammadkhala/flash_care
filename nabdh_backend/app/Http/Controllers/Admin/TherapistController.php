@@ -72,6 +72,8 @@ class TherapistController extends Controller
             'specializations.*'       => 'exists:specializations,id',
             'phone'                   => 'nullable|string|max:20',
             'phone_country_code'      => 'nullable|string|max:10',
+            'latitude'                => 'nullable|numeric|between:-90,90',
+            'longitude'               => 'nullable|numeric|between:-180,180',
         ]);
 
         $therapist->update([
@@ -89,6 +91,9 @@ class TherapistController extends Controller
             'session_duration'        => $request->session_duration,
             'accepts_online'          => $request->boolean('accepts_online'),
             'accepts_in_person'       => $request->boolean('accepts_in_person'),
+            // Blank inputs clear the pin so the map falls back to the city centre.
+            'latitude'                => $request->filled('latitude')  ? $request->latitude  : null,
+            'longitude'               => $request->filled('longitude') ? $request->longitude : null,
         ]);
 
         // Sync specializations
