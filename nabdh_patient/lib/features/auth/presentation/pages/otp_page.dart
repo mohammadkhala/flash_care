@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/fcm_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class OtpPage extends StatefulWidget {
@@ -76,7 +77,10 @@ class _OtpPageState extends State<OtpPage> {
 
       final data  = res.data as Map<String, dynamic>;
       final token = data['token'] as String?;
-      if (token != null) await ApiClient.setToken(token);
+      if (token != null) {
+        await ApiClient.setToken(token);
+        unawaited(FcmService.instance.refreshToken());
+      }
       if (!mounted) return;
 
       if (data['needs_password'] == true) {

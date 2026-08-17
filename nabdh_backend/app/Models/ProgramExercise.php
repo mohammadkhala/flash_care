@@ -11,7 +11,7 @@ class ProgramExercise extends Model
     protected $fillable = [
         'home_program_id', 'title', 'description', 'sets', 'reps',
         'duration_seconds', 'frequency', 'media_type', 'media_url',
-        'media_thumbnail', 'order',
+        'media_name', 'media_thumbnail', 'order',
     ];
 
     public function homeProgram(): BelongsTo

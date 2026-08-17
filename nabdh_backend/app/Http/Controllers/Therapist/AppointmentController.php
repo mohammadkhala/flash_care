@@ -25,11 +25,12 @@ class AppointmentController extends Controller
         ]);
 
         $query = $request->user()->therapist->appointments()
-            ->with(['patient.user', 'clinic', 'sessionNote'])
+            ->with(['patient', 'clinic', 'sessionNote'])
             ->orderBy('scheduled_at', 'desc');
 
         if ($request->status) $query->where('status', $request->status);
-        if ($request->date) $query->whereDate('scheduled_at', $request->date);
+        if ($request->date)   $query->whereDate('scheduled_at', $request->date);
+        if ($request->filter === 'today') $query->whereDate('scheduled_at', now()->toDateString());
 
         return response()->json($query->paginate($request->per_page ?? 15));
     }

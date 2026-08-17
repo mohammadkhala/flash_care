@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Therapist;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
+use App\Models\Patient;
+use App\Models\PatientDocument;
 use App\Models\TherapistDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +55,30 @@ class DocumentController extends Controller
         ]);
 
         return response()->json(['document' => $doc], 201);
+    }
+
+    /**
+     * GET /therapist/patients/{patient}/documents
+     * Therapist can view a patient's medical documents ONLY if they share an appointment.
+     */
+    public function patientDocuments(Request $r, Patient $patient)
+    {
+        $therapist = $r->user()->therapist;
+
+        // Security: therapist must have at least one appointment with this patient
+        $hasAppointment = Appointment::where('therapist_id', $therapist->id)
+            ->where('patient_id', $patient->id)
+            ->exists();
+
+        abort_if(!$hasAppointment, 403, 'لا يمكنك الوصول لوثائق هذا المريض');
+
+        $docs = PatientDocument::where('patient_id', $patient->id)
+            ->orderByDesc('document_date')
+            ->orderByDesc('created_at')
+            ->get()
+            ->append('type_label');
+
+        return response()->json($docs);
     }
 
     /** DELETE /therapist/documents/{document} */

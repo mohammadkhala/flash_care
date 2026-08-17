@@ -1,10 +1,44 @@
+import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../constants/app_constants.dart';
 import '../network/api_client.dart';
 import 'notification_service.dart';
 
-/// Top-level handler for background/terminated FCM messages.
-/// Must be a top-level function annotated with vm:entry-point.
+// ── Call notification action IDs ─────────────────────────────────────────────
+const _kAcceptCall = 'accept_call';
+const _kRejectCall = 'reject_call';
+
+// ── Call notification details ─────────────────────────────────────────────────
+const _callDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    'call_channel', 'مكالمات واردة',
+    importance:       Importance.max,
+    priority:         Priority.max,
+    fullScreenIntent: true,
+    category:         AndroidNotificationCategory.call,
+    visibility:       NotificationVisibility.public,
+    ongoing:          true,
+    autoCancel:       false,
+    icon:             '@mipmap/ic_launcher',
+    actions: [
+      AndroidNotificationAction(
+        _kRejectCall, '❌  رفض',
+        showsUserInterface: false,
+        cancelNotification: true,
+      ),
+      AndroidNotificationAction(
+        _kAcceptCall, '✅  قبول',
+        showsUserInterface: true,
+        cancelNotification: true,
+      ),
+    ],
+  ),
+);
+
+/// Top-level background handler — runs in a separate Dart isolate.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final plugin = FlutterLocalNotificationsPlugin();
@@ -14,57 +48,94 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ),
     onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
   );
-  // Build deep-link payload so tapping the notification routes correctly
+
   final payload = NotificationService.buildPayloadFromData(message.data);
+  final isCall  = message.data['type'] == 'incoming_call';
+
   await plugin.show(
     message.hashCode,
     message.notification?.title ?? 'نبض',
-    message.notification?.body ?? '',
-    const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'nabdh_patient_channel', 'إشعارات نبض',
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
-    ),
+    message.notification?.body  ?? '',
+    isCall
+        ? _callDetails
+        : const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'nabdh_patient_channel', 'إشعارات نبض',
+              importance: Importance.high,
+              priority:   Priority.high,
+              icon:       '@mipmap/ic_launcher',
+            ),
+          ),
     payload: payload,
   );
 }
+
+// ── Background tap handler (action buttons or notification tap when app closed) ──
+@pragma('vm:entry-point')
+void onBackgroundNotificationTap(NotificationResponse response) {
+  if (response.actionId == _kRejectCall) {
+    // Reject call without opening the app
+    _backgroundRejectCall(response.payload);
+    return;
+  }
+  // Accept tap or normal notification tap → store payload for navigation
+  NotificationService.storePendingPayload(response.payload);
+}
+
+/// Reject call from background isolate — no app context needed.
+Future<void> _backgroundRejectCall(String? payload) async {
+  if (payload == null || !payload.startsWith('call:')) return;
+  final channel = payload.substring('call:'.length).split('|').first;
+  if (channel.isEmpty) return;
+  try {
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: AppConstants.tokenKey);
+    if (token == null) return;
+    final dio = Dio(BaseOptions(
+      baseUrl: AppConstants.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    ));
+    await dio.post('/calls/$channel/status', data: {'status': 'rejected'});
+  } catch (_) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class FcmService {
   FcmService._();
   static final FcmService instance = FcmService._();
 
   final _messaging = FirebaseMessaging.instance;
+  static const _permChannel = MethodChannel('com.nabdh/permissions');
 
   Future<void> init() async {
-    // Request permission (iOS + Android 13+)
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    // Register background handler
+    // Request USE_FULL_SCREEN_INTENT on Android 14+ so call screen auto-opens
+    _requestFullScreenIntentPermission();
+
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    // Save token to backend
     await _saveToken();
-
-    // Refresh token whenever it rotates
     _messaging.onTokenRefresh.listen(_sendTokenToServer);
-
-    // Handle FCM message when app is in FOREGROUND
     FirebaseMessaging.onMessage.listen(_onForegroundMessage);
-
-    // Handle notification tap when app was in BACKGROUND (not terminated)
     FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
-
-    // Handle notification tap when app was TERMINATED (FCM-launched)
     final initial = await _messaging.getInitialMessage();
     if (initial != null) _onMessageOpened(initial);
   }
+
+  /// Opens Android Settings so user can grant USE_FULL_SCREEN_INTENT (Android 14+).
+  Future<void> _requestFullScreenIntentPermission() async {
+    try {
+      await _permChannel.invokeMethod('requestFullScreenIntent');
+    } catch (_) {}
+  }
+
+  /// Call this after successful login to ensure FCM token is registered.
+  Future<void> refreshToken() => _saveToken();
 
   Future<void> _saveToken() async {
     try {
@@ -82,20 +153,28 @@ class FcmService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
+    final type = message.data['type'] as String? ?? '';
+
+    // Incoming call while app is in foreground → navigate directly, no notification
+    if (type == 'incoming_call') {
+      final payload = NotificationService.buildPayloadFromData(message.data);
+      if (payload != null) NotificationService.instance.handleDeepLink(payload);
+      return;
+    }
+
     final plugin = FlutterLocalNotificationsPlugin();
     final notification = message.notification;
     if (notification == null) return;
-    // Include deep-link payload so tapping the local notification navigates correctly
     final payload = NotificationService.buildPayloadFromData(message.data);
     plugin.show(
       message.hashCode,
       notification.title ?? 'نبض',
-      notification.body ?? '',
+      notification.body  ?? '',
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'nabdh_patient_channel', 'إشعارات نبض',
           importance: Importance.high,
-          priority: Priority.high,
+          priority:   Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
       ),
@@ -103,8 +182,6 @@ class FcmService {
     );
   }
 
-  /// Called when user taps an FCM notification while the app was in background
-  /// or when the app was launched from a terminated state via FCM.
   void _onMessageOpened(RemoteMessage message) {
     final payload = NotificationService.buildPayloadFromData(message.data)
         ?? 'notifications';

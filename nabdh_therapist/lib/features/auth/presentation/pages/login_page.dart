@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/fcm_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/country_code_picker.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -43,16 +46,17 @@ class _LoginPageState extends State<LoginPage> {
         'type':               'therapist',
       });
 
-      await ApiClient.setToken(res.data['token']);
+      await ApiClient.setToken(res.data['token']); // triggers AuthNotifier → GoRouter redirects
+      unawaited(FcmService.instance.refreshToken());
       if (!mounted) return;
 
       if (res.data['needs_profile'] == true) {
         context.go('/auth/setup');
       } else if (res.data['is_approved'] == false) {
-        _showPendingDialog();
-      } else {
-        context.go('/home');
+        // Keep the token so the pending page can poll /me for approval.
+        context.go('/auth/pending');
       }
+      // else: GoRouter redirect handles /home automatically via AuthNotifier.notify()
     } on DioException catch (e) {
       String msg = 'رقم الهاتف أو كلمة المرور غير صحيحة';
       if (e.type == DioExceptionType.connectionTimeout ||
@@ -89,20 +93,60 @@ class _LoginPageState extends State<LoginPage> {
     ));
   }
 
-  void _showPendingDialog() {
-    showDialog(
+  Future<void> _showForgotPassword(BuildContext context) async {
+    final phoneCtrl = TextEditingController(text: _phoneController.text);
+    String code     = _selectedCode;
+    bool   sending  = false;
+
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('قيد المراجعة', textAlign: TextAlign.center),
-        content: const Text(
-          'حسابك قيد المراجعة من قِبل الإدارة.\nسيتم إشعارك عند الموافقة.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          TextButton(onPressed: () => context.go('/auth'), child: const Text('حسناً')),
-        ],
-      ),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 24, 24,
+            MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('استرجاع كلمة المرور',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+          const SizedBox(height: 6),
+          const Text('سيُرسل لك رمز تحقق عبر واتساب',
+              style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo', fontSize: 13)),
+          const SizedBox(height: 20),
+          _PhoneField(
+            controller: phoneCtrl,
+            selectedCode: code,
+            onCodeChanged: (c) => set(() => code = c),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+              label: sending
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('إرسال رمز التحقق', style: TextStyle(fontFamily: 'Cairo')),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+              onPressed: sending ? null : () async {
+                final phone = phoneCtrl.text.trim();
+                if (phone.length < 9) return;
+                set(() => sending = true);
+                try {
+                  await ApiClient.instance.post('/auth/forgot-password', data: {
+                    'phone': phone, 'phone_country_code': code, 'type': 'therapist',
+                  });
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  context.push('/auth/otp', extra: '$code $phone');
+                } catch (e) {
+                  set(() => sending = false);
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('الرقم غير مسجل أو حدث خطأ')));
+                }
+              },
+            ),
+          ),
+        ]),
+      )),
     );
   }
 
@@ -168,7 +212,19 @@ class _LoginPageState extends State<LoginPage> {
                   : const Text('دخول'),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => _showForgotPassword(context),
+                icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 18),
+                label: const Text(
+                  'نسيت كلمة المرور؟ استرجاع عبر واتساب',
+                  style: TextStyle(fontFamily: 'Cairo', color: Color(0xFF25D366)),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 4),
             Center(
               child: TextButton(
                 onPressed: () => context.go('/auth/register'),
@@ -200,19 +256,10 @@ class _PhoneField extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => showModalBottomSheet(
-              context: context,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (_) => ListView(
-                shrinkWrap: true,
-                children: AppConstants.countryCodes.map((code) => ListTile(
-                  title: Text(code),
-                  onTap: () { onCodeChanged(code); Navigator.pop(context); },
-                  selected: code == selectedCode,
-                  selectedColor: AppColors.primary,
-                )).toList(),
-              ),
-            ),
+            onTap: () async {
+              final picked = await showCountryCodePicker(context, selected: selectedCode);
+              if (picked != null) onCodeChanged(picked);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: const BoxDecoration(border: Border(right: BorderSide(color: AppColors.border))),

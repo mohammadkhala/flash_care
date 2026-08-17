@@ -170,6 +170,45 @@
                 </div>
             </div>
 
+            {{-- Location on map --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="font-bold text-sm text-gray-700">الموقع على الخريطة</h3>
+                    @if($therapist->latitude && $therapist->longitude)
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700">📍 محدَّد بدقة</span>
+                    @else
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">تقريبي حسب المدينة</span>
+                    @endif
+                </div>
+                <p class="text-xs text-gray-400 mb-3">
+                    اضغط على الخريطة أو اسحب الدبوس لتحديد موقع الأخصائي بدقة. إذا تُرك فارغاً،
+                    يظهر الأخصائي في مركز مدينته على خريطة تطبيق المريض.
+                </p>
+
+                <div id="adminPickMap" class="w-full h-72 rounded-xl border border-gray-200 mb-3"></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">خط العرض (Latitude)</label>
+                        <input type="text" name="latitude" id="latInput"
+                               value="{{ old('latitude', $therapist->latitude) }}"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">خط الطول (Longitude)</label>
+                        <input type="text" name="longitude" id="lngInput"
+                               value="{{ old('longitude', $therapist->longitude) }}"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" id="clearPin"
+                                class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold px-3 py-2.5 rounded-xl text-sm transition-colors">
+                            🗑️ إزالة التحديد
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {{-- Bio --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 class="font-bold text-sm text-gray-700 mb-4">النبذة التعريفية</h3>
@@ -217,3 +256,108 @@
     </div>
 </form>
 @endsection
+
+@push('scripts')
+<script>
+// ── Location picker ──────────────────────────────────────────────
+// Centre on the saved pin when there is one, otherwise on the therapist's city,
+// otherwise on the West Bank. Writing to the lat/lng inputs is what actually
+// saves — the map is just a friendlier way to fill them in.
+const CITY_COORDS = {
+    'القدس':      { lat: 31.7683, lng: 35.2137 },
+    'رام الله':   { lat: 31.8996, lng: 35.2042 },
+    'البيرة':     { lat: 31.9067, lng: 35.2172 },
+    'نابلس':      { lat: 32.2211, lng: 35.2544 },
+    'الخليل':     { lat: 31.5326, lng: 35.0998 },
+    'بيت لحم':    { lat: 31.7054, lng: 35.2024 },
+    'جنين':       { lat: 32.4607, lng: 35.2966 },
+    'طولكرم':     { lat: 32.3100, lng: 35.0295 },
+    'قلقيلية':    { lat: 32.1875, lng: 34.9706 },
+    'أريحا':      { lat: 31.8561, lng: 35.4617 },
+    'طوباس':      { lat: 32.3209, lng: 35.3726 },
+    'سلفيت':      { lat: 32.0833, lng: 35.1747 },
+    'غزة':        { lat: 31.5017, lng: 34.4668 },
+    'خان يونس':   { lat: 31.3452, lng: 34.3028 },
+    'رفح':        { lat: 31.2965, lng: 34.2531 },
+    'حيفا':       { lat: 32.7940, lng: 34.9896 },
+    'الناصرة':    { lat: 32.7021, lng: 35.2978 },
+    'عكا':        { lat: 32.9281, lng: 35.0818 },
+    'أم الفحم':   { lat: 32.5197, lng: 35.1519 },
+};
+
+const SAVED_LAT = @json($therapist->latitude ? (float) $therapist->latitude : null);
+const SAVED_LNG = @json($therapist->longitude ? (float) $therapist->longitude : null);
+const CITY_NAME = @json($therapist->city);
+
+let pickMap, pin;
+
+function initPickMap() {
+    const latInput = document.getElementById('latInput');
+    const lngInput = document.getElementById('lngInput');
+
+    let center = { lat: 31.9522, lng: 35.2332 };  // West Bank fallback
+    let hasPin = false;
+
+    if (SAVED_LAT !== null && SAVED_LNG !== null) {
+        center = { lat: SAVED_LAT, lng: SAVED_LNG };
+        hasPin = true;
+    } else if (CITY_NAME && CITY_COORDS[CITY_NAME.trim()]) {
+        center = CITY_COORDS[CITY_NAME.trim()];
+    }
+
+    pickMap = new google.maps.Map(document.getElementById('adminPickMap'), {
+        center,
+        zoom: hasPin ? 15 : 12,
+        mapTypeControl: false,
+        streetViewControl: false,
+    });
+
+    function setPin(pos) {
+        if (!pin) {
+            pin = new google.maps.Marker({
+                position: pos,
+                map: pickMap,
+                draggable: true,
+                animation: google.maps.Animation.DROP,
+            });
+            pin.addListener('dragend', (e) => writeInputs(e.latLng));
+        } else {
+            pin.setPosition(pos);
+        }
+        writeInputs(new google.maps.LatLng(pos.lat, pos.lng));
+    }
+
+    function writeInputs(latLng) {
+        latInput.value = latLng.lat().toFixed(6);
+        lngInput.value = latLng.lng().toFixed(6);
+    }
+
+    if (hasPin) setPin(center);
+
+    pickMap.addListener('click', (e) => {
+        setPin({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    });
+
+    // Typing coordinates by hand should move the pin too.
+    [latInput, lngInput].forEach((input) => {
+        input.addEventListener('change', () => {
+            const lat = parseFloat(latInput.value);
+            const lng = parseFloat(lngInput.value);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                const pos = { lat, lng };
+                if (!pin) setPin(pos); else pin.setPosition(pos);
+                pickMap.panTo(pos);
+            }
+        });
+    });
+
+    document.getElementById('clearPin').addEventListener('click', () => {
+        latInput.value = '';
+        lngInput.value = '';
+        if (pin) { pin.setMap(null); pin = null; }
+    });
+}
+</script>
+<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFNVsGt3bpV9z9SDwzSPX4uU5s8w-zBYA&callback=initPickMap&language=ar&region=PS"></script>
+@endpush

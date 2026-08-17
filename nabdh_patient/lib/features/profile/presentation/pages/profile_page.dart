@@ -124,7 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Step 3: call API
     try {
       await ApiClient.instance.delete('/account', data: {'password': passCtrl.text});
-      await ApiClient.clearToken();
+      await ApiClient.clearTokenSilent();
       if (!mounted) return;
       context.go('/auth');
     } on DioException catch (e) {
@@ -145,23 +145,22 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('تسجيل الخروج'),
         content: const Text('هل تريد تسجيل الخروج؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('خروج')),
         ],
       ),
     );
     if (confirmed != true) return;
-    try {
-      await ApiClient.instance.post('/auth/logout');
-    } catch (_) {}
-    await ApiClient.clearToken();
+    // Fire-and-forget — don't await so the 401 interceptor can't race with our navigation
+    ApiClient.instance.post('/auth/logout').catchError((_) {});
+    await ApiClient.clearTokenSilent();
     if (!mounted) return;
     context.go('/auth');
   }

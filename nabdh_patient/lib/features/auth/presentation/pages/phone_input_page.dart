@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/country_code_picker.dart';
 
 /// Registration page — sends OTP to new patient's phone number
 class PhoneInputPage extends StatefulWidget {
@@ -181,27 +182,10 @@ class _PhoneField extends StatelessWidget {
         ),
         child: Row(children: [
           GestureDetector(
-            onTap: () => showModalBottomSheet(
-              context: context,
-              shape: const RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (_) => ListView(
-                shrinkWrap: true,
-                children: AppConstants.countryCodes
-                    .map((c) => ListTile(
-                          title: Text(c,
-                              style: const TextStyle(fontFamily: 'Cairo')),
-                          selected: c == code,
-                          selectedColor: AppColors.primary,
-                          onTap: () {
-                            onCode(c);
-                            Navigator.pop(context);
-                          },
-                        ))
-                    .toList(),
-              ),
-            ),
+            onTap: () async {
+              final picked = await showCountryCodePicker(context, selected: code);
+              if (picked != null) onCode(picked);
+            },
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 16),

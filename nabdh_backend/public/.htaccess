@@ -1,4 +1,7 @@
-# Increase upload limits for reel videos (500MB)
+# Increase upload limits for reel videos and exercise media (500MB).
+# php_value only works when PHP runs as an Apache module, so every known
+# module name is covered here. Under PHP-FPM/FastCGI these blocks are all
+# skipped — public/.user.ini carries the same limits for that case.
 <IfModule mod_php.c>
     php_value upload_max_filesize 512M
     php_value post_max_size 512M
@@ -6,6 +9,23 @@
     php_value max_input_time 300
     php_value memory_limit 512M
 </IfModule>
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 512M
+</IfModule>
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 512M
+</IfModule>
+
+# Allow large request bodies through Apache itself (500MB in bytes)
+LimitRequestBody 536870912
 
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>

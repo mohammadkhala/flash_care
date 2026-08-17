@@ -37,6 +37,8 @@ class ProfileController extends Controller
             'online_session_price' => 'nullable|numeric|min:0',
             'in_person_session_price' => 'nullable|numeric|min:0',
             'session_duration' => 'integer|in:30,45,60,90',
+            'latitude'  => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'specialization_ids' => 'sometimes|array',
             'specialization_ids.*' => 'exists:specializations,id',
         ]);
@@ -119,8 +121,9 @@ class ProfileController extends Controller
     {
         $therapist = $request->user()->therapist;
 
-        $unread = \App\Models\PushNotification::where('user_id', $request->user()->id)
-            ->whereNull('read_at')->count();
+        // Count unread chat messages (therapist_unread from conversations)
+        $unread = \App\Models\Conversation::where('therapist_id', $therapist->id)
+            ->sum('therapist_unread');
 
         $total      = $therapist->appointments()->count();
         $completed  = $therapist->appointments()->where('status', 'completed')->count();

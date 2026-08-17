@@ -48,7 +48,6 @@ class MapController extends Controller
                     'clinics'         => $clinics,
                 ];
             })
-            ->filter(fn($t) => $t['clinics']->isNotEmpty())
             ->values();
 
         // Stats per city

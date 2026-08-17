@@ -13,95 +13,85 @@ class TherapistMapPage extends StatefulWidget {
   State<TherapistMapPage> createState() => _TherapistMapPageState();
 }
 
-class _TherapistMapPageState extends State<TherapistMapPage>
-    with SingleTickerProviderStateMixin {
+class _TherapistMapPageState extends State<TherapistMapPage> {
   GoogleMapController? _mapController;
   Position? _myPosition;
   List<Map<String, dynamic>> _therapists = [];
   Map<String, dynamic>? _selected;
   bool _loading = true;
   bool _locating = false;
-
-  // Card animation
-  late AnimationController _cardAnim;
-  late Animation<Offset> _slideAnim;
+  String? _loadError;
+  // Guards against the map's onTap firing milliseconds after a marker tap
+  // (a known Google Maps Flutter quirk on some Android devices).
+  bool _suppressMapTap = false;
 
   static const LatLng _palestineCenter = LatLng(31.9, 35.2);
 
   @override
   void initState() {
     super.initState();
-    _cardAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _cardAnim, curve: Curves.easeOutCubic));
     _init();
   }
 
   @override
   void dispose() {
     _mapController?.dispose();
-    _cardAnim.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
-    await _getLocation();
-    await _loadNearby();
+    // Load therapists immediately using Palestine center — don't wait for GPS.
+    // GPS location is fetched in parallel and used to re-center the map.
+    _loadNearby(_palestineCenter.latitude, _palestineCenter.longitude);
+    _getLocationThenReload();
   }
 
-  Future<void> _getLocation() async {
+  /// Fetch GPS in the background; once obtained, reload therapists from that position.
+  Future<void> _getLocationThenReload() async {
     setState(() => _locating = true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnack('خدمة الموقع غير مفعّلة');
-        setState(() { _locating = false; _loading = false; });
-        return;
-      }
+      if (!serviceEnabled) { setState(() => _locating = false); return; }
+
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
-        if (perm == LocationPermission.denied) {
-          _showSnack('لم يتم منح صلاحية الموقع');
-          setState(() { _locating = false; _loading = false; });
-          return;
-        }
+        if (perm == LocationPermission.denied) { setState(() => _locating = false); return; }
       }
-      if (perm == LocationPermission.deniedForever) {
-        _showSnack('صلاحية الموقع محظورة — افتح الإعدادات');
-        setState(() { _locating = false; _loading = false; });
-        return;
-      }
+      if (perm == LocationPermission.deniedForever) { setState(() => _locating = false); return; }
+
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
+      if (!mounted) return;
       setState(() { _myPosition = pos; _locating = false; });
+      // Reload with actual position to get accurate nearby results
+      _loadNearby(pos.latitude, pos.longitude);
     } catch (_) {
-      setState(() { _locating = false; _loading = false; });
+      if (mounted) setState(() => _locating = false);
     }
   }
 
-  Future<void> _loadNearby() async {
-    setState(() => _loading = true);
-    final lat = _myPosition?.latitude  ?? _palestineCenter.latitude;
-    final lng = _myPosition?.longitude ?? _palestineCenter.longitude;
+  Future<void> _loadNearby(double lat, double lng) async {
+    if (!mounted) return;
+    setState(() { _loading = true; _loadError = null; });
     try {
       final r = await ApiClient.instance.get('/therapists/nearby', queryParameters: {
-        'lat': lat, 'lng': lng, 'radius': 50,
+        'lat': lat, 'lng': lng, 'radius': 200, // 200 km to always find therapists
       });
       if (!mounted) return;
+      final raw  = r.data;
+      final list = (raw is List ? raw : ((raw as Map)['data'] as List? ?? []));
       setState(() {
-        _therapists = (r.data as List).cast<Map<String, dynamic>>();
+        _therapists = list.cast<Map<String, dynamic>>();
         _loading = false;
       });
       _fitMap();
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _loadError = e.toString(); });
     }
   }
 
@@ -134,8 +124,14 @@ class _TherapistMapPageState extends State<TherapistMapPage>
   }
 
   void _selectTherapist(Map<String, dynamic> t) {
+    // Suppress the map's onTap for 500 ms so it doesn't immediately close the card.
+    _suppressMapTap = true;
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _suppressMapTap = false;
+    });
+
     setState(() => _selected = t);
-    _cardAnim.forward(from: 0);
+
     // Animate camera to marker
     final lat = (t['latitude']  as num?)?.toDouble();
     final lng = (t['longitude'] as num?)?.toDouble();
@@ -149,13 +145,12 @@ class _TherapistMapPageState extends State<TherapistMapPage>
   }
 
   void _closeCard() {
-    _cardAnim.reverse().then((_) {
-      if (mounted) setState(() => _selected = null);
-    });
+    if (_suppressMapTap) return; // marker was just tapped — ignore
+    setState(() => _selected = null);
   }
 
   void _goToMe() {
-    if (_myPosition == null) { _getLocation(); return; }
+    if (_myPosition == null) { _getLocationThenReload(); return; }
     _mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(
       target: LatLng(_myPosition!.latitude, _myPosition!.longitude),
       zoom: 14,
@@ -204,14 +199,8 @@ class _TherapistMapPageState extends State<TherapistMapPage>
         icon: BitmapDescriptor.defaultMarkerWithHue(
           isSelected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueViolet,
         ),
-        // No InfoWindow — the card below is the UI
-        onTap: () {
-          if (isSelected) {
-            _closeCard();
-          } else {
-            _selectTherapist(t);
-          }
-        },
+        // No InfoWindow — card below handles UI
+        onTap: () => _selectTherapist(t),
       ));
     }
     return markers;
@@ -228,12 +217,25 @@ class _TherapistMapPageState extends State<TherapistMapPage>
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('الأخصائيون القريبون',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          if (_therapists.isNotEmpty)
-            Text('${_therapists.length} أخصائي في نطاق 50 كم',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          if (_loadError != null)
+            const Text('خطأ في التحميل — اضغط تحديث',
+                style: TextStyle(fontSize: 12, color: Colors.red))
+          else if (_therapists.isNotEmpty)
+            Text('${_therapists.length} أخصائي',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
+          else if (!_loading)
+            const Text('لا يوجد أخصائيون في النطاق',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         ]),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _init),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () {
+              final lat = _myPosition?.latitude  ?? _palestineCenter.latitude;
+              final lng = _myPosition?.longitude ?? _palestineCenter.longitude;
+              _loadNearby(lat, lng);
+            },
+          ),
         ],
       ),
       body: Stack(children: [
@@ -250,8 +252,7 @@ class _TherapistMapPageState extends State<TherapistMapPage>
           myLocationButtonEnabled: false,
           zoomControlsEnabled: false,
           mapToolbarEnabled: false,
-          // Tap on map background → close card
-          onTap: (_) { if (hasCard) _closeCard(); },
+          onTap: (_) => _closeCard(),
         ),
 
         // ── Loading overlay ─────────────────────────────────────────────
@@ -260,6 +261,25 @@ class _TherapistMapPageState extends State<TherapistMapPage>
             color: Colors.black26,
             child: const Center(
                 child: CircularProgressIndicator(color: Colors.white)),
+          ),
+
+        // ── Error toast ─────────────────────────────────────────────────
+        if (_loadError != null && !_loading)
+          Positioned(
+            top: 12, left: 16, right: 16,
+            child: Material(
+              color: Colors.red.shade700,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Text(
+                  'خطأ: $_loadError',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
           ),
 
         // ── FABs ────────────────────────────────────────────────────────
@@ -286,19 +306,23 @@ class _TherapistMapPageState extends State<TherapistMapPage>
           ]),
         ),
 
-        // ── Therapist Card (slide-up) ────────────────────────────────────
-        if (_selected != null)
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: SlideTransition(
-              position: _slideAnim,
-              child: _TherapistCard(
-                therapist: _selected!,
-                onClose: _closeCard,
-                onView: () => context.push('/therapists/${_selected!['id']}'),
-              ),
-            ),
-          ),
+        // ── Therapist Card (animated slide-up) ──────────────────────────
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          bottom: _selected != null ? 0 : -320,
+          left: 0, right: 0,
+          child: _selected != null
+              ? _TherapistCard(
+                  therapist: _selected!,
+                  onClose: _closeCard,
+                  onView: () {
+                    final id = _selected!['id'];
+                    context.push('/therapists/$id');
+                  },
+                )
+              : const SizedBox.shrink(),
+        ),
       ]),
     );
   }

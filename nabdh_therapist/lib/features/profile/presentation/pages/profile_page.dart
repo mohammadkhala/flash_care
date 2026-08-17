@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/l10n/s.dart';
@@ -92,7 +93,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     try {
       await ApiClient.instance.delete('/account', data: {'password': passCtrl.text});
-      await ApiClient.clearToken();
+      await ApiClient.clearTokenSilent();
       if (!mounted) return;
       context.go('/auth');
     } on DioException catch (e) {
@@ -110,21 +111,55 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _setMyLocation() async {
+    try {
+      // Request permission
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever || perm == LocationPermission.denied) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يرجى السماح بالوصول للموقع من إعدادات التطبيق')));
+        return;
+      }
+
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('جارٍ تحديد موقعك...')));
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+
+      await ApiClient.instance.put('/therapist/profile', data: {
+        'latitude':  pos.latitude,
+        'longitude': pos.longitude,
+      });
+
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✓ تم تحديد موقعك على الخريطة'), backgroundColor: AppColors.success));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذّر تحديد الموقع: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
   Future<void> _logout() async {
-    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('تسجيل الخروج'),
       content: const Text('هل تريد تسجيل الخروج؟'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-        TextButton(onPressed: () => Navigator.pop(context, true),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true),
             child: const Text('خروج', style: TextStyle(color: AppColors.error))),
       ],
     ));
-    if (ok == true && mounted) {
-      try { await ApiClient.instance.post('/logout'); } catch (_) {}
-      await ApiClient.clearToken();
-      if (mounted) context.go('/auth');
+    if (ok == true) {
+      // Fire-and-forget — don't await so the 401 interceptor can't race with our navigation
+      ApiClient.instance.post('/logout').catchError((_) {});
+      await ApiClient.clearTokenSilent();
+      if (!mounted) return;
+      context.go('/auth');
     }
   }
 
@@ -287,6 +322,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   _NavRow(Icons.calendar_month_rounded, S.schedule, '/schedule',
                       '', AppColors.primary),
                   _divider(),
+                  _NavRow(Icons.verified_user_outlined, 'وثائق التوثيق',
+                      '/profile/documents', '', AppColors.success),
+                  _divider(),
                   InkWell(
                     borderRadius: BorderRadius.circular(10),
                     onTap: () => showLanguagePicker(context),
@@ -325,6 +363,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 ]),
               ),
               const SizedBox(height: 24),
+
+              // ── Set Location ──────────────────────────────────
+              OutlinedButton.icon(
+                onPressed: _setMyLocation,
+                icon: const Icon(Icons.my_location_rounded),
+                label: const Text('تحديد موقعي على الخريطة', style: TextStyle(fontSize: 15)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // ── Logout ────────────────────────────────────────
               OutlinedButton.icon(

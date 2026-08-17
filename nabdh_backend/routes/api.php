@@ -24,9 +24,10 @@ Route::get('pages/{slug}',  [PublicController::class, 'page']);
 
 // ─── Auth (Public) ────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
-    Route::post('send-otp',   [AuthController::class, 'sendOtp']);
-    Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
-    Route::post('login',      [AuthController::class, 'login']);
+    Route::post('send-otp',       [AuthController::class, 'sendOtp']);
+    Route::post('verify-otp',     [AuthController::class, 'verifyOtp']);
+    Route::post('login',          [AuthController::class, 'login']);
+    Route::post('forgot-password',[AuthController::class, 'forgotPassword']);
 });
 
 // ─── Auth (Protected — after OTP) ────────────────────────────
@@ -105,6 +106,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('assessments', [\App\Http\Controllers\Therapist\AssessmentController::class, 'index']);
         Route::post('assessments', [\App\Http\Controllers\Therapist\AssessmentController::class, 'store']);
 
+        // Patient medical documents (therapist can view if they share an appointment)
+        Route::get('patients/{patient}/documents', [TherapistDocumentController::class, 'patientDocuments']);
+
         // Patients list (for starting conversations)
         // Shows ALL registered patients so therapists can initiate contact
         Route::get('patients', function () {
@@ -118,6 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('home-programs', [HomeProgramController::class, 'index']);
         Route::post('home-programs', [HomeProgramController::class, 'store']);
         Route::get('home-programs/patient/{patientId}', [HomeProgramController::class, 'patientPrograms']);
+        Route::put('home-programs/{program}', [HomeProgramController::class, 'update']);
         Route::delete('home-programs/{program}', [HomeProgramController::class, 'destroy']);
         Route::post('exercises/upload', [HomeProgramController::class, 'uploadExerciseMedia']);
 
@@ -210,6 +215,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('notifications/read-all', function () {
         \App\Models\PushNotification::where('user_id', request()->user()->id)->whereNull('read_at')
             ->update(['read_at' => now()]);
+        return response()->json(['ok' => true]);
+    });
+    // Clear already-read notifications so the list stays manageable.
+    Route::delete('notifications/read', function () {
+        $deleted = \App\Models\PushNotification::where('user_id', request()->user()->id)
+            ->whereNotNull('read_at')->delete();
+        return response()->json(['ok' => true, 'deleted' => $deleted]);
+    });
+    Route::delete('notifications/{id}', function (string $id) {
+        \App\Models\PushNotification::where('user_id', request()->user()->id)
+            ->where('id', $id)->delete();
         return response()->json(['ok' => true]);
     });
 });

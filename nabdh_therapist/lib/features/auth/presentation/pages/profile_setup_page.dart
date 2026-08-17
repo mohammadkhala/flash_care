@@ -176,18 +176,37 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         await ApiClient.instance.post('/therapist/profile/language', data: lang);
       }
 
-      // 4. Upload documents
+      // 4. Upload documents.
+      // The profile itself is already created by this point, so a failed
+      // document upload must not abort the whole flow — otherwise the therapist
+      // lands in a registered-but-undocumented state with no way back. Failures
+      // are collected and reported, and the documents page can retry them.
+      final failedDocs = <String>[];
       for (final doc in _documents) {
         final file = doc['file'] as File;
-        final formData = FormData.fromMap({
-          'file':  await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-          'type':  doc['type'] as String,
-          'label': doc['label'] as String,
-        });
-        await ApiClient.instance.post('/therapist/documents', data: formData);
+        try {
+          final formData = FormData.fromMap({
+            'file':  await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+            'type':  doc['type'] as String,
+            'label': doc['label'] as String,
+          });
+          await ApiClient.instance.post('/therapist/documents', data: formData);
+        } catch (_) {
+          failedDocs.add(doc['label'] as String? ?? doc['type'] as String);
+        }
       }
 
       if (!mounted) return;
+      if (failedDocs.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            'تم إنشاء ملفك، لكن تعذّر رفع: ${failedDocs.join('، ')}. '
+            'يمكنك رفعها من "وثائق التوثيق" في صفحة حسابك.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: const Duration(seconds: 6),
+        ));
+      }
       context.go('/auth/pending');
     } catch (e) {
       if (mounted) {

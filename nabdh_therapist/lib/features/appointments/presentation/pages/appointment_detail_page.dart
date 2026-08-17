@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../calls/presentation/pages/webrtc_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -16,6 +17,8 @@ class AppointmentDetailPage extends StatefulWidget {
 class _State extends State<AppointmentDetailPage> {
   Map? _apt;
   bool _loading = true, _saving = false;
+  List<Map<String, dynamic>> _docs = [];
+  bool _docsLoading = false;
   final _s = TextEditingController();
   final _o = TextEditingController();
   final _a = TextEditingController();
@@ -41,7 +44,27 @@ class _State extends State<AppointmentDetailPage> {
         _pain   = jsonInt(note['pain_scale']);
       }
       setState(() { _apt = apt; _loading = false; });
+      // Load patient docs after appointment is fetched
+      final patientId = ((apt['patient'] as Map?)?['id'] as num?)?.toInt() ?? 0;
+      if (patientId > 0) _loadDocs(patientId);
     } catch (_) { setState(() => _loading = false); }
+  }
+
+  Future<void> _loadDocs(int patientId) async {
+    setState(() => _docsLoading = true);
+    try {
+      final res = await ApiClient.instance.get('/therapist/patients/$patientId/documents');
+      final list = (res.data as List?) ?? [];
+      setState(() { _docs = list.cast<Map<String, dynamic>>(); _docsLoading = false; });
+    } catch (_) { setState(() => _docsLoading = false); }
+  }
+
+  Future<void> _openDoc(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _action(String action, {Map? data}) async {
@@ -156,6 +179,14 @@ class _State extends State<AppointmentDetailPage> {
             minimumSize: const Size(double.infinity, 48),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Patient Medical Documents ─────────────────────────────────
+        _PatientDocsSection(
+          docs: _docs,
+          loading: _docsLoading,
+          onOpen: _openDoc,
         ),
         const SizedBox(height: 16),
 
@@ -297,4 +328,126 @@ class _State extends State<AppointmentDetailPage> {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
     decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(20)),
     child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)));
+}
+
+// ── Patient Medical Documents Section ─────────────────────────────────────────
+class _PatientDocsSection extends StatefulWidget {
+  final List<Map<String, dynamic>> docs;
+  final bool loading;
+  final Future<void> Function(String url) onOpen;
+  const _PatientDocsSection({required this.docs, required this.loading, required this.onOpen});
+
+  @override
+  State<_PatientDocsSection> createState() => _PatientDocsSectionState();
+}
+
+class _PatientDocsSectionState extends State<_PatientDocsSection> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(_PatientDocsSection old) {
+    super.didUpdateWidget(old);
+    // Auto-expand when docs are loaded and there are results
+    if (!old.loading && widget.docs.isNotEmpty && !_expanded) {
+      setState(() => _expanded = true);
+    }
+  }
+
+  IconData _docIcon(String? mime) {
+    if (mime == null) return Icons.insert_drive_file_outlined;
+    if (mime.contains('pdf')) return Icons.picture_as_pdf_rounded;
+    if (mime.contains('image')) return Icons.image_outlined;
+    return Icons.insert_drive_file_outlined;
+  }
+
+  Color _docColor(String? mime) {
+    if (mime == null) return AppColors.textSecondary;
+    if (mime.contains('pdf')) return const Color(0xFFE53935);
+    if (mime.contains('image')) return const Color(0xFF0288D1);
+    return AppColors.textSecondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(children: [
+        // Header — always visible
+        InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.folder_copy_outlined, color: AppColors.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('الوثائق الطبية للمريض',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                Text(
+                  widget.loading ? 'جاري التحميل...'
+                    : widget.docs.isEmpty ? 'لا توجد وثائق مرفوعة'
+                    : '${widget.docs.length} وثيقة',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ])),
+              if (widget.loading)
+                const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent))
+              else
+                Icon(_expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: AppColors.textSecondary),
+            ]),
+          ),
+        ),
+
+        // Docs list — visible when expanded
+        if (_expanded && widget.docs.isNotEmpty) ...[
+          const Divider(height: 1, color: AppColors.border),
+          ...widget.docs.map((doc) {
+            final url      = doc['file_url'] as String? ?? '';
+            final mime     = doc['file_mime'] as String?;
+            final title    = doc['title'] as String? ?? 'وثيقة';
+            final typeLabel = doc['type_label'] as String? ?? '';
+            final dateStr  = doc['document_date'] as String?;
+            String? date;
+            if (dateStr != null) {
+              try {
+                date = DateFormat('d MMM yyyy').format(DateTime.parse(dateStr));
+              } catch (_) {}
+            }
+            return ListTile(
+              onTap: url.isNotEmpty ? () => widget.onOpen(url) : null,
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _docColor(mime).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(_docIcon(mime), color: _docColor(mime), size: 22),
+              ),
+              title: Text(title,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              subtitle: Text('$typeLabel${date != null ? '  •  $date' : ''}',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              trailing: url.isNotEmpty
+                ? const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.primary)
+                : null,
+            );
+          }),
+        ],
+      ]),
+    );
+  }
 }

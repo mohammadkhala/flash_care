@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -294,7 +295,7 @@ class _WebRtcCallPageState extends State<WebRtcCallPage> {
     await _pc?.close();
     _localRenderer.srcObject  = null;
     _remoteRenderer.srcObject = null;
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) context.pop();
   }
 
   // ── Controls ───────────────────────────────────────────────

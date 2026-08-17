@@ -22,7 +22,31 @@ class FcmService
 
         if (!$user->fcm_token) return;
 
-        $this->sendPush($user->fcm_token, $title, $body, array_merge($data, ['type' => $type]));
+        $this->sendPush(
+            $user->fcm_token,
+            $title,
+            $body,
+            array_merge($data, ['type' => $type]),
+            $this->channelFor($user, $type),
+        );
+    }
+
+    /**
+     * Android notification channel to deliver on.
+     *
+     * When the app is backgrounded or closed, Android renders the notification
+     * itself using the channel named in the payload. Without one it falls back
+     * to a low-importance default channel that makes no sound at all — which is
+     * why incoming calls used to arrive silently. Calls get the max-importance
+     * call channel; everything else gets the app's own channel.
+     */
+    private function channelFor(User $user, string $type): string
+    {
+        if (str_contains($type, 'call')) {
+            return 'call_channel';
+        }
+
+        return $user->isTherapist() ? 'nabdh_therapist_channel' : 'nabdh_patient_channel';
     }
 
     public function sendToMany(array $userIds, string $title, string $body, array $data = [], string $type = 'general'): void
@@ -45,8 +69,13 @@ class FcmService
 
     // ── FCM v1 API ────────────────────────────────────────────────────────────
 
-    private function sendPush(string $token, string $title, string $body, array $data): void
-    {
+    private function sendPush(
+        string $token,
+        string $title,
+        string $body,
+        array $data,
+        string $channelId = 'nabdh_patient_channel',
+    ): void {
         $projectId = config('services.firebase.project_id');
         $credPath  = config('services.firebase.credentials');
 
@@ -65,11 +94,22 @@ class FcmService
                     'data'         => array_map('strval', $data),
                     'android'      => [
                         'priority'     => 'high',
-                        'notification' => ['sound' => 'default'],
+                        'notification' => [
+                            'sound'                  => 'default',
+                            'channel_id'             => $channelId,
+                            'notification_priority'  => 'PRIORITY_MAX',
+                            'default_vibrate_timings' => true,
+                        ],
                     ],
                     'apns' => [
-                        'headers' => ['apns-priority' => '10'],
-                        'payload' => ['aps' => ['sound' => 'default']],
+                        'headers' => [
+                            'apns-priority'  => '10',
+                            'apns-push-type' => 'alert',
+                        ],
+                        'payload' => ['aps' => [
+                            'sound'             => 'default',
+                            'interruption-level' => $channelId === 'call_channel' ? 'time-sensitive' : 'active',
+                        ]],
                     ],
                 ],
             ];

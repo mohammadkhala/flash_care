@@ -26,27 +26,29 @@ import '../../features/articles/presentation/pages/articles_page.dart';
 import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/calls/presentation/pages/webrtc_call_page.dart';
+import '../../features/calls/presentation/pages/incoming_call_page.dart';
 import '../../features/assessments/presentation/pages/assessment_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
 import '../../features/goals/presentation/pages/goal_detail_page.dart';
 import '../../features/profile/presentation/pages/static_page.dart';
+import '../../features/profile/presentation/pages/documents_page.dart';
 import '../network/api_client.dart';
 import '../widgets/whatsapp_fab.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
-  redirect: (context, state) async {
-    final token     = await ApiClient.getToken();
-    final isAuth    = token != null;
-    final loc       = state.matchedLocation;
+  refreshListenable: AuthNotifier.instance,
+  redirect: (context, state) {
+    // Synchronous — no async needed, AuthNotifier tracks state in memory.
+    final isAuth          = AuthNotifier.instance.isAuthenticated;
+    final loc             = state.matchedLocation;
     final isAuthRoute     = loc.startsWith('/auth');
     final isSplash        = loc == '/splash';
     final isPostAuthSetup = loc == '/auth/set-password' ||
                             loc == '/auth/setup'        ||
                             loc == '/auth/pending';
-
-    final isOnboarding = loc == '/onboarding';
+    final isOnboarding    = loc == '/onboarding';
 
     if (isSplash || isPostAuthSetup || isOnboarding) return null;
     if (!isAuth && !isAuthRoute) return '/auth';
@@ -92,6 +94,17 @@ final appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: '/incoming-call',
+      builder: (_, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return IncomingCallPage(
+          channel:    extra['channel']    as String? ?? '',
+          callerName: extra['callerName'] as String? ?? 'مكالمة',
+          isVideo:    extra['isVideo']    as bool?   ?? false,
+        );
+      },
+    ),
 
     // ── Main shell with bottom nav ────────────────────────────
     ShellRoute(
@@ -131,6 +144,7 @@ final appRouter = GoRouter(
         GoRoute(path: '/reels',           builder: (_, __) => const ReelsPage()),
         GoRoute(path: '/profile',         builder: (_, __) => const ProfilePage()),
         GoRoute(path: '/profile/edit',    builder: (_, __) => const EditProfilePage()),
+        GoRoute(path: '/profile/documents', builder: (_, __) => const DocumentsPage()),
         GoRoute(path: '/statistics',      builder: (_, __) => const StatisticsPage()),
         GoRoute(path: '/articles',        builder: (_, __) => const ArticlesPage()),
         GoRoute(
@@ -168,10 +182,12 @@ final appRouter = GoRouter(
           path: '/assessment',
           builder: (_, state) {
             final extra = state.extra as Map<String, dynamic>? ?? {};
+            final t = extra['type'] as String? ?? 'phq9';
             return AssessmentPage(
               patientId: extra['patientId'] as int? ?? 0,
-              type: (extra['type'] as String?) == 'gad7'
-                  ? AssessmentType.gad7
+              type: t == 'gad7' ? AssessmentType.gad7
+                  : t == 'nrs'  ? AssessmentType.nrs
+                  : t == 'rom'  ? AssessmentType.rom
                   : AssessmentType.phq9,
             );
           },

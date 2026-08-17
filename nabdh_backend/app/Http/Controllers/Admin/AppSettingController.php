@@ -45,7 +45,7 @@ class AppSettingController extends Controller
         $role = $request->role ?? 'all';
         $query = User::whereNotNull('fcm_token');
         if ($role !== 'all') {
-            $query->where('role', $role);
+            $query->where('type', $role);
         }
 
         $tokens = $query->pluck('fcm_token')->filter()->values()->toArray();

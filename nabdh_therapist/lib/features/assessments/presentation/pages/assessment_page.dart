@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
-enum AssessmentType { phq9, gad7 }
+enum AssessmentType { phq9, gad7, nrs, rom }
 
 class AssessmentPage extends StatefulWidget {
   final int patientId;
@@ -42,25 +42,67 @@ class _AssessmentPageState extends State<AssessmentPage> {
     'الخوف من حدوث شيء سيئ',
   ];
 
-  static const _options = ['أبداً', 'عدة أيام', 'أكثر من نصف الأيام', 'تقريباً كل يوم'];
+  static const _romQuestions = [
+    'قدرة المريض على ثني الكتف للأمام (Flexion)',
+    'قدرة المريض على مد الكتف للخلف (Extension)',
+    'قدرة المريض على ثني الركبة (Knee Flexion)',
+    'قدرة المريض على مد الركبة (Knee Extension)',
+    'قدرة المريض على ثني الرقبة للأمام (Neck Flexion)',
+    'قدرة المريض على تدوير الرقبة (Cervical Rotation)',
+    'قدرة المريض على ثني الظهر (Trunk Flexion)',
+    'القدرة العامة على الحركة مقارنة بالمريض الطبيعي',
+  ];
 
-  List<String> get _questions => widget.type == AssessmentType.phq9 ? _phq9Questions : _gad7Questions;
-  String get _typeName => widget.type == AssessmentType.phq9 ? 'PHQ-9 (اكتئاب)' : 'GAD-7 (قلق)';
+  static const _options        = ['أبداً', 'عدة أيام', 'أكثر من نصف الأيام', 'تقريباً كل يوم'];
+  static const _romOptions     = ['طبيعي تماماً', 'محدود قليلاً', 'محدود بشكل معتدل', 'محدود بشكل شديد'];
+
+  List<String> get _questions {
+    switch (widget.type) {
+      case AssessmentType.gad7: return _gad7Questions;
+      case AssessmentType.rom:  return _romQuestions;
+      default:                  return _phq9Questions;
+    }
+  }
+
+  List<String> get _activeOptions =>
+      widget.type == AssessmentType.rom ? _romOptions : _options;
+
+  String get _typeName {
+    switch (widget.type) {
+      case AssessmentType.gad7: return 'GAD-7 (قلق)';
+      case AssessmentType.nrs:  return 'NRS (مقياس الألم)';
+      case AssessmentType.rom:  return 'ROM (نطاق الحركة)';
+      default:                  return 'PHQ-9 (اكتئاب)';
+    }
+  }
 
   int get _totalScore => _answers.fold(0, (a, b) => a + b);
 
   String get _severity {
-    if (widget.type == AssessmentType.phq9) {
-      if (_totalScore <= 4) return 'لا يوجد اكتئاب';
-      if (_totalScore <= 9) return 'اكتئاب خفيف';
-      if (_totalScore <= 14) return 'اكتئاب متوسط';
-      if (_totalScore <= 19) return 'اكتئاب متوسط شديد';
-      return 'اكتئاب شديد';
-    } else {
-      if (_totalScore <= 4) return 'قلق طبيعي';
-      if (_totalScore <= 9) return 'قلق خفيف';
-      if (_totalScore <= 14) return 'قلق متوسط';
-      return 'قلق شديد';
+    switch (widget.type) {
+      case AssessmentType.phq9:
+        if (_totalScore <= 4)  return 'لا يوجد اكتئاب';
+        if (_totalScore <= 9)  return 'اكتئاب خفيف';
+        if (_totalScore <= 14) return 'اكتئاب متوسط';
+        if (_totalScore <= 19) return 'اكتئاب متوسط شديد';
+        return 'اكتئاب شديد';
+      case AssessmentType.gad7:
+        if (_totalScore <= 4)  return 'قلق طبيعي';
+        if (_totalScore <= 9)  return 'قلق خفيف';
+        if (_totalScore <= 14) return 'قلق متوسط';
+        return 'قلق شديد';
+      case AssessmentType.nrs:
+        if (_totalScore == 0)  return 'لا ألم';
+        if (_totalScore <= 3)  return 'ألم خفيف';
+        if (_totalScore <= 6)  return 'ألم متوسط';
+        if (_totalScore <= 8)  return 'ألم شديد';
+        return 'ألم شديد جداً';
+      case AssessmentType.rom:
+        final pct = _totalScore / (_questions.length * 3) * 100;
+        if (pct <= 10) return 'طبيعي';
+        if (pct <= 35) return 'تحديد خفيف للحركة';
+        if (pct <= 65) return 'تحديد معتدل للحركة';
+        return 'تحديد شديد للحركة';
     }
   }
 
@@ -113,7 +155,69 @@ class _AssessmentPageState extends State<AssessmentPage> {
       title: Text(_typeName),
       leading: BackButton(onPressed: () => context.pop()),
     ),
-    body: _done ? _resultView() : _questionView(),
+    body: widget.type == AssessmentType.nrs
+        ? _nrsView()
+        : (_done ? _resultView() : _questionView()),
+  );
+
+  // ── NRS: single 0-10 pain slider ────────────────────────────────────────
+  double _nrsValue = 5;
+  Widget _nrsView() => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      const SizedBox(height: 40),
+      const Text('قيّم شدة الألم من 0 إلى 10',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      const Text('0 = لا ألم  |  10 = ألم لا يُحتمل',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+      const SizedBox(height: 40),
+      StatefulBuilder(builder: (_, set) => Column(children: [
+        Text('${_nrsValue.round()}',
+            style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w900, color: AppColors.primary)),
+        Slider(
+          value: _nrsValue,
+          min: 0, max: 10, divisions: 10,
+          activeColor: AppColors.primary,
+          onChanged: (v) => set(() => _nrsValue = v),
+        ),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(11, (i) => Text('$i',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)))),
+      ])),
+      const Spacer(),
+      SizedBox(width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _saving ? null : () async {
+            setState(() { _saving = true; });
+            try {
+              await ApiClient.instance.post('/therapist/assessments', data: {
+                'patient_id': widget.patientId,
+                'type':       'nrs',
+                'answers':    [_nrsValue.round()],
+                'score':      _nrsValue.round(),
+                'severity':   _nrsValue.round() == 0 ? 'لا ألم'
+                    : _nrsValue <= 3 ? 'ألم خفيف'
+                    : _nrsValue <= 6 ? 'ألم متوسط'
+                    : _nrsValue <= 8 ? 'ألم شديد' : 'ألم شديد جداً',
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم حفظ التقييم ✓')));
+                context.pop();
+              }
+            } catch (_) {
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('خطأ في الحفظ'), backgroundColor: AppColors.error));
+            } finally { if (mounted) setState(() => _saving = false); }
+          },
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+          child: _saving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('حفظ التقييم', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    ]),
   );
 
   Widget _questionView() {
@@ -151,7 +255,7 @@ class _AssessmentPageState extends State<AssessmentPage> {
         const SizedBox(height: 32),
 
         // Options
-        ..._options.asMap().entries.map((e) => Padding(
+        ..._activeOptions.asMap().entries.map((e) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),

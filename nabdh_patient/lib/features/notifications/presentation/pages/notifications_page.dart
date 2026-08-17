@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -60,6 +61,56 @@ class _NotificationsPageState extends State<NotificationsPage> {
     } catch (_) {}
   }
 
+  Future<void> _deleteOne(int id, int index) async {
+    // Drop it locally first so the swipe feels instant; restore on failure.
+    final removed = _notifications[index];
+    setState(() => _notifications.removeAt(index));
+    try {
+      await ApiClient.instance.delete('/notifications/$id');
+      NotificationService.instance.forceRefresh();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _notifications.insert(index, removed));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذّر حذف الإشعار')));
+      }
+    }
+  }
+
+  Future<void> _clearRead() async {
+    final readCount = _notifications.where((n) => n['read_at'] != null).length;
+    if (readCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد إشعارات مقروءة لحذفها')));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف الإشعارات المقروءة'),
+        content: Text('سيتم حذف $readCount إشعاراً مقروءاً.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ApiClient.instance.delete('/notifications/read');
+      await _load();
+      NotificationService.instance.forceRefresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذّر حذف الإشعارات')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
@@ -71,6 +122,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             onPressed: _markAll,
             child: Text(S.markAllRead,
               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+        if (_notifications.any((n) => n['read_at'] != null))
+          IconButton(
+            onPressed: _clearRead,
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'حذف المقروءة',
+          ),
       ],
     ),
     body: _loading
@@ -110,9 +167,33 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       }
                     } catch (_) {}
                   }
-                  return ListTile(
+                  return Dismissible(
+                    key: ValueKey(n['id']),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) => _deleteOne(jsonInt(n['id']), i),
+                    background: Container(
+                      color: AppColors.error,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: const Icon(Icons.delete_outline, color: Colors.white),
+                    ),
+                    child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    onTap: () => _markOne(jsonInt(n['id']), i),
+                    onTap: () {
+                      _markOne(jsonInt(n['id']), i);
+                      // Navigate to the relevant content
+                      final dataField = n['data'];
+                      final dataMap = dataField is Map
+                          ? dataField.cast<String, dynamic>()
+                          : <String, dynamic>{};
+                      final payload = NotificationService.buildPayloadFromData(dataMap);
+                      if (payload != null && !payload.startsWith('call:')) {
+                        final route = NotificationService.payloadToRoute(payload);
+                        if (route != '/notifications') {
+                          context.push(route);
+                        }
+                      }
+                    },
                     tileColor: isRead ? null : AppColors.primary.withOpacity(0.03),
                     leading: Container(
                       width: 44, height: 44,
@@ -139,6 +220,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       width: 8, height: 8,
                       decoration: const BoxDecoration(
                         color: AppColors.primary, shape: BoxShape.circle)),
+                    ),
                   );
                 },
               ),

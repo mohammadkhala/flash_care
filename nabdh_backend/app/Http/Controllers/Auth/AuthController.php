@@ -21,7 +21,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string|max:15',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'type'               => 'required|in:therapist,patient',
         ]);
 
@@ -63,7 +63,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'otp'                => 'required|string|size:6',
             'fcm_token'          => 'nullable|string',
         ]);
@@ -115,12 +115,39 @@ class AuthController extends Controller
         return response()->json(['message' => 'تم تعيين كلمة المرور بنجاح']);
     }
 
+    // ── Forgot password: send OTP to existing user ────────────────
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'phone'              => 'required|string|max:15',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
+            'type'               => 'required|in:therapist,patient',
+        ]);
+
+        $user = User::where('phone', $request->phone)
+            ->where('phone_country_code', $request->phone_country_code)
+            ->where('type', $request->type)
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'لا يوجد حساب مرتبط بهذا الرقم'], 404);
+        }
+
+        $sent = $this->otpService->generateAndSend($user);
+
+        if (!$sent) {
+            return response()->json(['message' => 'فشل إرسال رمز التحقق. حاول مجدداً.'], 500);
+        }
+
+        return response()->json(['message' => 'تم إرسال رمز التحقق على واتساب']);
+    }
+
     // ── Login: phone + password ───────────────────────────────────
     public function login(Request $request): JsonResponse
     {
         $request->validate([
             'phone'              => 'required|string',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'password'           => 'required|string',
             'type'               => 'required|in:therapist,patient',
             'fcm_token'          => 'nullable|string',

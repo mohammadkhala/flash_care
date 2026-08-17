@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/fcm_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class OtpPage extends StatefulWidget {
@@ -58,6 +59,7 @@ class _OtpPageState extends State<OtpPage> {
 
       final token = res.data['token'];
       await ApiClient.setToken(token);
+      unawaited(FcmService.instance.refreshToken());
 
       if (!mounted) return;
 

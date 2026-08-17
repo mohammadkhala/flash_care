@@ -1,14 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../utils/json_utils.dart';
 
-// ─── Top-level background tap handler (must NOT be inside a class) ────────────
-@pragma('vm:entry-point')
-void onBackgroundNotificationTap(NotificationResponse response) {
-  NotificationService._storePendingPayload(response.payload);
-}
+const _kLastShownNotifKey = 'last_shown_notif_id';
 
 class NotificationService {
   NotificationService._();
@@ -17,26 +14,33 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   final _unreadCount = ValueNotifier<int>(0);
   Timer? _pollTimer;
+  bool _initialPollDone = false; // skip first poll to avoid showing old notifications on launch
 
   /// Set by main.dart after appRouter is ready — avoids circular imports.
-  void Function(String route)? _navigate;
+  void Function(String route, [Object? extra])? _navigate;
 
   /// Payload from a background/closed-app tap — consumed once.
   static String? _pendingPayload;
 
+  /// True if app was launched by tapping a notification (cold start).
+  /// Set before runApp so SplashPage can read it synchronously.
+  static bool hadPendingAtStartup = false;
+
   ValueNotifier<int> get unreadCount => _unreadCount;
 
-  static void _storePendingPayload(String? payload) {
+  static void storePendingPayload(String? payload) {
     _pendingPayload = payload;
+    if (payload != null) hadPendingAtStartup = true;
   }
 
   /// Wire up navigation after GoRouter is ready.
-  void setNavigator(void Function(String route) navigate) {
+  void setNavigator(void Function(String route, [Object? extra]) navigate) {
     _navigate = navigate;
     final pending = _pendingPayload;
     if (pending != null) {
       _pendingPayload = null;
-      _handlePayload(pending);
+      // Delay long enough for splash to reach /home (300ms) + render settle (300ms)
+      Future.delayed(const Duration(milliseconds: 600), () => _handlePayload(pending));
     }
   }
 
@@ -52,7 +56,6 @@ class NotificationService {
     await _plugin.initialize(
       settings,
       onDidReceiveNotificationResponse: _onForegroundTap,
-      onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
     );
 
     final androidPlugin = _plugin
@@ -67,10 +70,21 @@ class NotificationService {
     );
     await androidPlugin?.createNotificationChannel(channel);
 
+    // High-priority channel for incoming calls (fullScreenIntent)
+    const callChannel = AndroidNotificationChannel(
+      'call_channel', 'مكالمات واردة',
+      description: 'إشعارات المكالمات الواردة',
+      importance: Importance.max,
+    );
+    await androidPlugin?.createNotificationChannel(callChannel);
+
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
-      if (payload != null) _pendingPayload = payload;
+      if (payload != null) {
+        _pendingPayload = payload;
+        hadPendingAtStartup = true; // tell SplashPage to navigate quickly
+      }
     }
 
     _startPolling();
@@ -84,6 +98,13 @@ class NotificationService {
 
   void _handlePayload(String? payload) {
     if (payload == null || payload.isEmpty) return;
+
+    // Incoming call: navigate directly with extra data (no tap needed)
+    if (payload.startsWith('call:')) {
+      _handleCallPayload(payload);
+      return;
+    }
+
     final route = _payloadToRoute(payload);
     if (_navigate != null) {
       Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
@@ -92,7 +113,30 @@ class NotificationService {
     }
   }
 
-  String _payloadToRoute(String payload) {
+  // Format: call:CHANNEL|CALLER_NAME|IS_VIDEO
+  void _handleCallPayload(String payload) {
+    final rest       = payload.substring('call:'.length);
+    final parts      = rest.split('|');
+    final channel    = parts.isNotEmpty ? parts[0] : '';
+    final callerName = parts.length > 1 ? parts[1] : 'مكالمة';
+    final isVideo    = parts.length > 2 && parts[2] == '1';
+    final extra = <String, dynamic>{
+      'channel':    channel,
+      'callerName': callerName,
+      'isVideo':    isVideo,
+    };
+    if (_navigate != null) {
+      Future.delayed(const Duration(milliseconds: 400),
+          () => _navigate!('/incoming-call', extra));
+    } else {
+      _pendingPayload = payload;
+    }
+  }
+
+  String _payloadToRoute(String payload) => payloadToRoute(payload);
+
+  /// Public static version — used by NotificationsPage to navigate on tap.
+  static String payloadToRoute(String payload) {
     if (payload.startsWith('appointment:')) {
       return '/appointments/${payload.substring('appointment:'.length)}';
     }
@@ -106,13 +150,22 @@ class NotificationService {
       return '/programs/${payload.substring('program:'.length)}';
     }
     if (payload == 'reels') return '/reels';
-    // Default: open notifications list
     return '/notifications';
   }
 
   // ── Build payload from notification data map (shared with FcmService) ─────
 
   static String? buildPayloadFromData(Map<String, dynamic> data) {
+    final type = data['type'] as String? ?? '';
+
+    // Incoming call — encode channel + caller name + video flag
+    if (type == 'incoming_call') {
+      final channel    = data['channel']     as String? ?? '';
+      final callerName = data['caller_name'] as String? ?? 'مكالمة';
+      final isVideo    = data['is_video'] == 'true' || data['is_video'] == true;
+      return 'call:$channel|$callerName|${isVideo ? '1' : '0'}';
+    }
+
     final aptId  = data['appointment_id'];
     if (aptId != null) return 'appointment:$aptId';
     final convId = data['conversation_id'];
@@ -121,9 +174,8 @@ class NotificationService {
     if (goalId != null) return 'goal:$goalId';
     final progId = data['program_id'];
     if (progId != null) return 'program:$progId';
-    final type = data['type'] as String? ?? '';
     if (type == 'reel_approved' || type == 'new_reel') return 'reels';
-    return null; // let caller decide fallback
+    return null;
   }
 
   // ── Polling ───────────────────────────────────────────────────────────────
@@ -144,16 +196,32 @@ class NotificationService {
       final prev  = _unreadCount.value;
       _unreadCount.value = count;
 
-      // 2. Only fetch & display when count rose
+      // 2. First poll after launch: record baseline count only — don't show anything
+      //    This prevents replaying all existing unread notifications on every app open.
+      if (!_initialPollDone) {
+        _initialPollDone = true;
+        return;
+      }
+
+      // 3. Only fetch & display when count rose since last check
       if (count > prev) {
         final listRes = await ApiClient.instance.get(
           '/notifications', queryParameters: {'per_page': 10});
         final raw = listRes.data;
         final list = ((raw is Map ? raw['data'] : raw) as List?) ?? [];
 
+        // Only show notifications with ID higher than the last one we showed
+        final prefs = await SharedPreferences.getInstance();
+        final lastShownId = prefs.getInt(_kLastShownNotifKey) ?? 0;
+        int maxIdSeen = lastShownId;
+
         for (final item in list) {
           final n = item as Map<String, dynamic>;
           if (n['read_at'] != null) continue;
+
+          final notifId = jsonInt(n['id']);
+          if (notifId <= lastShownId) continue; // already shown before
+          if (notifId > maxIdSeen) maxIdSeen = notifId;
 
           final dataField = n['data'];
           final dataMap   = dataField is Map
@@ -163,11 +231,15 @@ class NotificationService {
           final payload = buildPayloadFromData(dataMap);
 
           await _showNotification(
-            id:      jsonInt(n['id']),
+            id:      notifId,
             title:   n['title']  as String? ?? 'نبض',
             body:    n['body']   as String? ?? '',
             payload: payload,
           );
+        }
+
+        if (maxIdSeen > lastShownId) {
+          await prefs.setInt(_kLastShownNotifKey, maxIdSeen);
         }
       }
     } catch (_) {}

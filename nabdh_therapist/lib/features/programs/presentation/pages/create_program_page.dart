@@ -5,13 +5,35 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
+/// Re-anchor a server-supplied media URL onto the API host.
+///
+/// The server may hand back a URL built from a stale APP_URL (localhost, an old
+/// LAN IP) or a bare relative path — all of which are unreachable from a phone.
+/// Only the path is trusted; the host always comes from [AppConstants.baseUrl].
 String _fix(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url.replaceAll('localhost', '192.168.1.10')
-            .replaceAll('127.0.0.1', '192.168.1.10');
+  final base = AppConstants.baseUrl.replaceAll('/api', '');
+
+  // Relative path (e.g. /storage/exercises/...) → just prefix the host.
+  if (url.startsWith('/')) return '$base$url';
+
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme) return '$base/${url.replaceFirst(RegExp('^/+'), '')}';
+
+  // Any loopback / private-LAN host is unreachable from the device: keep the
+  // path, swap the origin. Public hosts are left untouched.
+  const localHosts = {'localhost', '127.0.0.1', '10.0.2.2', '0.0.0.0'};
+  final isPrivateLan = RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)')
+      .hasMatch(uri.host);
+  if (localHosts.contains(uri.host) || isPrivateLan) {
+    final tail = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+    return '$base$tail';
+  }
+  return url;
 }
 
 class CreateProgramPage extends StatefulWidget {
@@ -135,6 +157,7 @@ class _CreateProgramPageState extends State<CreateProgramPage> {
           'frequency':        ex.frequency,
           'media_type':       ex.mediaType,
           'media_url':        ex.mediaUrl,
+          'media_name':       ex.mediaName,
           'order':            e.key,
         };
       }).toList();
@@ -546,6 +569,18 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
         _mediaUrl  = _fix(res.data['media_url'] as String?);
         _mediaName = res.data['media_name'] as String? ?? name;
       });
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      // 413 / 422 on a large file almost always means the *server* upload limit
+      // is lower than the file, which is worth saying plainly.
+      final msg = switch (status) {
+        413 => 'الملف كبير جداً بالنسبة لحدود السيرفر. جرّب ملفاً أصغر.',
+        422 => (e.response?.data as Map?)?['message'] as String? ?? 'الملف مرفوض',
+        _   => (e.response?.data as Map?)?['message'] as String?
+                 ?? 'تعذّر الاتصال بالسيرفر${status != null ? ' ($status)' : ''}',
+      };
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل الرفع: $msg'), backgroundColor: AppColors.error));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('فشل الرفع: $e'), backgroundColor: AppColors.error));
