@@ -21,7 +21,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string|max:15',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'type'               => 'required|in:therapist,patient',
         ]);
 
@@ -63,7 +63,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'otp'                => 'required|string|size:6',
             'fcm_token'          => 'nullable|string',
         ]);
@@ -120,7 +120,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string|max:15',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'type'               => 'required|in:therapist,patient',
         ]);
 
@@ -147,7 +147,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone'              => 'required|string',
-            'phone_country_code' => 'required|in:+970,+972',
+            'phone_country_code' => ['required', 'string', 'regex:/^\+[1-9]\d{0,3}$/'],
             'password'           => 'required|string',
             'type'               => 'required|in:therapist,patient',
             'fcm_token'          => 'nullable|string',

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/widgets/country_code_picker.dart';
 
 class PhoneInputPage extends StatefulWidget {
   const PhoneInputPage({super.key});
@@ -167,22 +168,8 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
     );
   }
 
-  void _showCodePicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => ListView(
-        shrinkWrap: true,
-        children: AppConstants.countryCodes.map((code) => ListTile(
-          title: Text(code, style: const TextStyle(fontFamily: 'Cairo')),
-          onTap: () {
-            setState(() => _selectedCode = code);
-            Navigator.pop(context);
-          },
-          selected: code == _selectedCode,
-          selectedColor: AppColors.primary,
-        )).toList(),
-      ),
-    );
+  Future<void> _showCodePicker() async {
+    final picked = await showCountryCodePicker(context, selected: _selectedCode);
+    if (picked != null && mounted) setState(() => _selectedCode = picked);
   }
 }
