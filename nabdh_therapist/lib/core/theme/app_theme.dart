@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ─── NABD CARE Brand Colors ────────────────────────────────────────────────
 // Navy  #1B2E6E  (NABD text in logo)
@@ -67,14 +66,24 @@ class AppGradients {
 }
 
 class AppTheme {
-  static TextTheme _cairoTextTheme(TextTheme base) => GoogleFonts.cairoTextTheme(base).copyWith(
-    headlineLarge:  GoogleFonts.cairo(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-    headlineMedium: GoogleFonts.cairo(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-    titleLarge:     GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-    titleMedium:    GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-    bodyLarge:      GoogleFonts.cairo(fontSize: 15, color: AppColors.textPrimary),
-    bodyMedium:     GoogleFonts.cairo(fontSize: 14, color: AppColors.textSecondary),
-    labelLarge:     GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600),
+  /// Text theme built on the bundled Cairo family.
+  ///
+  /// This used to call GoogleFonts.cairo(), which fetches the font from
+  /// fonts.gstatic.com on first launch; when that fetch fails the app silently
+  /// falls back to the system font, and on devices whose fallback chain ends at
+  /// Noto CJK the Arabic text renders as Chinese glyphs. Bundling removes the
+  /// network dependency and matches the fontFamily: 'Cairo' used elsewhere.
+  static const fontFamily = 'Cairo';
+
+  static TextTheme _cairoTextTheme(TextTheme base) =>
+      base.apply(fontFamily: fontFamily).copyWith(
+    headlineLarge:  const TextStyle(fontFamily: fontFamily, fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+    headlineMedium: const TextStyle(fontFamily: fontFamily, fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+    titleLarge:     const TextStyle(fontFamily: fontFamily, fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+    titleMedium:    const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+    bodyLarge:      const TextStyle(fontFamily: fontFamily, fontSize: 15, color: AppColors.textPrimary),
+    bodyMedium:     const TextStyle(fontFamily: fontFamily, fontSize: 14, color: AppColors.textSecondary),
+    labelLarge:     const TextStyle(fontFamily: fontFamily, fontSize: 14, fontWeight: FontWeight.w600),
   );
 
   static ThemeData get lightTheme {
@@ -97,7 +106,7 @@ class AppTheme {
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.cairo(
+        titleTextStyle: TextStyle(fontFamily: fontFamily,
             fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -106,7 +115,7 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 54),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.w700),
           elevation: 0,
         ),
       ),
@@ -142,9 +151,9 @@ class AppTheme {
         indicatorColor: const Color(0x1F1B2E6E),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.cairo(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary);
+            return TextStyle(fontFamily: fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary);
           }
-          return GoogleFonts.cairo(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary);
+          return TextStyle(fontFamily: fontFamily, fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary);
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -158,7 +167,7 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        labelStyle: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.w600),
+        labelStyle: TextStyle(fontFamily: fontFamily, fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }

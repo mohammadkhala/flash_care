@@ -87,3 +87,17 @@ flutter:
     - assets/icons/
     - assets/animations/
 
+  # Bundled so text renders without a runtime download. Widgets across the app
+  # set fontFamily: 'Cairo' directly, and an undeclared family silently falls
+  # back to the system font — which on some devices resolves Arabic to CJK.
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Medium.ttf
+        - asset: assets/fonts/Cairo-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Cairo-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700
+
