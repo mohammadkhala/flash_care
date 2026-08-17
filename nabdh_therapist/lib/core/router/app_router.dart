@@ -32,6 +32,7 @@ import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
 import '../../features/goals/presentation/pages/goal_detail_page.dart';
 import '../../features/profile/presentation/pages/static_page.dart';
+import '../../features/profile/presentation/pages/documents_page.dart';
 import '../network/api_client.dart';
 import '../widgets/whatsapp_fab.dart';
 
@@ -143,6 +144,7 @@ final appRouter = GoRouter(
         GoRoute(path: '/reels',           builder: (_, __) => const ReelsPage()),
         GoRoute(path: '/profile',         builder: (_, __) => const ProfilePage()),
         GoRoute(path: '/profile/edit',    builder: (_, __) => const EditProfilePage()),
+        GoRoute(path: '/profile/documents', builder: (_, __) => const DocumentsPage()),
         GoRoute(path: '/statistics',      builder: (_, __) => const StatisticsPage()),
         GoRoute(path: '/articles',        builder: (_, __) => const ArticlesPage()),
         GoRoute(

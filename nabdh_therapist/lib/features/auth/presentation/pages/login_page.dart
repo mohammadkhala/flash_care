@@ -7,6 +7,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/fcm_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/country_code_picker.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -52,7 +53,8 @@ class _LoginPageState extends State<LoginPage> {
       if (res.data['needs_profile'] == true) {
         context.go('/auth/setup');
       } else if (res.data['is_approved'] == false) {
-        _showPendingDialog();
+        // Keep the token so the pending page can poll /me for approval.
+        context.go('/auth/pending');
       }
       // else: GoRouter redirect handles /home automatically via AuthNotifier.notify()
     } on DioException catch (e) {
@@ -145,23 +147,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ]),
       )),
-    );
-  }
-
-  void _showPendingDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('قيد المراجعة', textAlign: TextAlign.center),
-        content: const Text(
-          'حسابك قيد المراجعة من قِبل الإدارة.\nسيتم إشعارك عند الموافقة.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          TextButton(onPressed: () => context.go('/auth'), child: const Text('حسناً')),
-        ],
-      ),
     );
   }
 
@@ -271,19 +256,10 @@ class _PhoneField extends StatelessWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => showModalBottomSheet(
-              context: context,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (_) => ListView(
-                shrinkWrap: true,
-                children: AppConstants.countryCodes.map((code) => ListTile(
-                  title: Text(code),
-                  onTap: () { onCodeChanged(code); Navigator.pop(context); },
-                  selected: code == selectedCode,
-                  selectedColor: AppColors.primary,
-                )).toList(),
-              ),
-            ),
+            onTap: () async {
+              final picked = await showCountryCodePicker(context, selected: selectedCode);
+              if (picked != null) onCodeChanged(picked);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: const BoxDecoration(border: Border(right: BorderSide(color: AppColors.border))),
