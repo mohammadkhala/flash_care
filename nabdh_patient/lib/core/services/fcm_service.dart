@@ -5,38 +5,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
 import '../network/api_client.dart';
+import 'local_notification_helper.dart';
 import 'notification_service.dart';
-
-// ── Call notification action IDs ─────────────────────────────────────────────
-const _kAcceptCall = 'accept_call';
-const _kRejectCall = 'reject_call';
-
-// ── Call notification details ─────────────────────────────────────────────────
-const _callDetails = NotificationDetails(
-  android: AndroidNotificationDetails(
-    'call_channel', 'مكالمات واردة',
-    importance:       Importance.max,
-    priority:         Priority.max,
-    fullScreenIntent: true,
-    category:         AndroidNotificationCategory.call,
-    visibility:       NotificationVisibility.public,
-    ongoing:          true,
-    autoCancel:       false,
-    icon:             '@mipmap/ic_launcher',
-    actions: [
-      AndroidNotificationAction(
-        _kRejectCall, '❌  رفض',
-        showsUserInterface: false,
-        cancelNotification: true,
-      ),
-      AndroidNotificationAction(
-        _kAcceptCall, '✅  قبول',
-        showsUserInterface: true,
-        cancelNotification: true,
-      ),
-    ],
-  ),
-);
 
 /// Top-level background handler — runs in a separate Dart isolate.
 @pragma('vm:entry-point')
@@ -49,40 +19,36 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
   );
 
+  await LocalNotificationHelper.ensureAndroidChannels(plugin);
+
   final payload = NotificationService.buildPayloadFromData(message.data);
-  final isCall  = message.data['type'] == 'incoming_call';
+  final isCall  = (message.data['type'] as String? ?? '').contains('call');
+
+  final title = message.notification?.title ??
+      message.data['title'] as String? ??
+      (isCall ? 'مكالمة واردة' : 'نبض');
+  final body = message.notification?.body ??
+      message.data['body'] as String? ??
+      '';
 
   await plugin.show(
     message.hashCode,
-    message.notification?.title ?? 'نبض',
-    message.notification?.body  ?? '',
-    isCall
-        ? _callDetails
-        : const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'nabdh_patient_channel', 'إشعارات نبض',
-              importance: Importance.high,
-              priority:   Priority.high,
-              icon:       '@mipmap/ic_launcher',
-            ),
-          ),
+    title,
+    body,
+    isCall ? LocalNotificationHelper.callDetails : LocalNotificationHelper.generalDetails(),
     payload: payload,
   );
 }
 
-// ── Background tap handler (action buttons or notification tap when app closed) ──
 @pragma('vm:entry-point')
 void onBackgroundNotificationTap(NotificationResponse response) {
-  if (response.actionId == _kRejectCall) {
-    // Reject call without opening the app
+  if (response.actionId == kRejectCall) {
     _backgroundRejectCall(response.payload);
     return;
   }
-  // Accept tap or normal notification tap → store payload for navigation
   NotificationService.storePendingPayload(response.payload);
 }
 
-/// Reject call from background isolate — no app context needed.
 Future<void> _backgroundRejectCall(String? payload) async {
   if (payload == null || !payload.startsWith('call:')) return;
   final channel = payload.substring('call:'.length).split('|').first;
@@ -103,8 +69,6 @@ Future<void> _backgroundRejectCall(String? payload) async {
   } catch (_) {}
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 class FcmService {
   FcmService._();
   static final FcmService instance = FcmService._();
@@ -114,10 +78,7 @@ class FcmService {
 
   Future<void> init() async {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
-
-    // Request USE_FULL_SCREEN_INTENT on Android 14+ so call screen auto-opens
     _requestFullScreenIntentPermission();
-
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     await _saveToken();
     _messaging.onTokenRefresh.listen(_sendTokenToServer);
@@ -127,14 +88,12 @@ class FcmService {
     if (initial != null) _onMessageOpened(initial);
   }
 
-  /// Opens Android Settings so user can grant USE_FULL_SCREEN_INTENT (Android 14+).
   Future<void> _requestFullScreenIntentPermission() async {
     try {
       await _permChannel.invokeMethod('requestFullScreenIntent');
     } catch (_) {}
   }
 
-  /// Call this after successful login to ensure FCM token is registered.
   Future<void> refreshToken() => _saveToken();
 
   Future<void> _saveToken() async {
@@ -152,32 +111,30 @@ class FcmService {
     } catch (_) {}
   }
 
-  void _onForegroundMessage(RemoteMessage message) {
+  Future<void> _onForegroundMessage(RemoteMessage message) async {
     final type = message.data['type'] as String? ?? '';
+    final payload = NotificationService.buildPayloadFromData(message.data);
 
-    // Incoming call while app is in foreground → navigate directly, no notification
-    if (type == 'incoming_call') {
-      final payload = NotificationService.buildPayloadFromData(message.data);
-      if (payload != null) NotificationService.instance.handleDeepLink(payload);
+    if (type.contains('call') && payload != null) {
+      final title = message.notification?.title ?? 'مكالمة واردة';
+      final body  = message.notification?.body  ?? 'اضغط للرد على المكالمة';
+      await NotificationService.instance.showIncomingCall(
+        title: title,
+        body: body,
+        payload: payload,
+      );
+      NotificationService.instance.handleDeepLink(payload);
       return;
     }
 
+    if (message.notification == null) return;
+
     final plugin = FlutterLocalNotificationsPlugin();
-    final notification = message.notification;
-    if (notification == null) return;
-    final payload = NotificationService.buildPayloadFromData(message.data);
-    plugin.show(
+    await plugin.show(
       message.hashCode,
-      notification.title ?? 'نبض',
-      notification.body  ?? '',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'nabdh_patient_channel', 'إشعارات نبض',
-          importance: Importance.high,
-          priority:   Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
+      message.notification!.title ?? 'نبض',
+      message.notification!.body  ?? '',
+      LocalNotificationHelper.generalDetails(),
       payload: payload,
     );
   }

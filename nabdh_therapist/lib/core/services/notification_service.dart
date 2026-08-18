@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../utils/json_utils.dart';
+import 'local_notification_helper.dart';
+
+const _kLastShownNotifKey = 'last_shown_notif_id_therapist';
 
 class NotificationService {
   NotificationService._();
@@ -11,6 +15,7 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   final _unreadCount = ValueNotifier<int>(0);
   Timer? _pollTimer;
+  bool _initialPollDone = false;
 
   void Function(String route, [Object? extra])? _navigate;
   static String? _pendingPayload;
@@ -26,14 +31,11 @@ class NotificationService {
     final pending = _pendingPayload;
     if (pending != null) {
       _pendingPayload = null;
-      _handlePayload(pending);
+      Future.delayed(const Duration(milliseconds: 600), () => _handlePayload(pending));
     }
   }
 
-  /// Called by FcmService when a background-FCM notification is tapped.
   void handleDeepLink(String payload) => _handlePayload(payload);
-
-  // ── Init ──────────────────────────────────────────────────────────────────
 
   Future<void> init() async {
     const android  = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -44,25 +46,11 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onForegroundTap,
     );
 
+    await LocalNotificationHelper.ensureAndroidChannels(_plugin);
+
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-
     await androidPlugin?.requestNotificationsPermission();
-
-    const channel = AndroidNotificationChannel(
-      'nabdh_therapist_channel', 'إشعارات نبض',
-      description: 'إشعارات تطبيق نبض للأخصائي',
-      importance: Importance.high,
-    );
-    await androidPlugin?.createNotificationChannel(channel);
-
-    // High-priority channel for incoming calls (fullScreenIntent)
-    const callChannel = AndroidNotificationChannel(
-      'call_channel', 'مكالمات واردة',
-      description: 'إشعارات المكالمات الواردة',
-      importance: Importance.max,
-    );
-    await androidPlugin?.createNotificationChannel(callChannel);
 
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
@@ -73,16 +61,14 @@ class NotificationService {
     _startPolling();
   }
 
-  // ── Tap handlers ──────────────────────────────────────────────────────────
-
   void _onForegroundTap(NotificationResponse response) {
+    if (response.actionId == kRejectCall) return;
     _handlePayload(response.payload);
   }
 
   void _handlePayload(String? payload) {
     if (payload == null || payload.isEmpty) return;
 
-    // Incoming call: navigate directly with extra data
     if (payload.startsWith('call:')) {
       _handleCallPayload(payload);
       return;
@@ -96,7 +82,6 @@ class NotificationService {
     }
   }
 
-  // Format: call:CHANNEL|CALLER_NAME|IS_VIDEO
   void _handleCallPayload(String payload) {
     final rest       = payload.substring('call:'.length);
     final parts      = rest.split('|');
@@ -118,7 +103,6 @@ class NotificationService {
 
   String _payloadToRoute(String payload) => payloadToRoute(payload);
 
-  /// Public static version — used by NotificationsPage to navigate on tap.
   static String payloadToRoute(String payload) {
     if (payload.startsWith('appointment:')) {
       return '/appointments/${payload.substring('appointment:'.length)}';
@@ -136,12 +120,9 @@ class NotificationService {
     return '/notifications';
   }
 
-  // ── Build payload from notification data map (shared with FcmService) ─────
-
   static String? buildPayloadFromData(Map<String, dynamic> data) {
     final type = data['type'] as String? ?? '';
 
-    // Incoming call — encode channel + caller name + video flag
     if (type == 'incoming_call') {
       final channel    = data['channel']     as String? ?? '';
       final callerName = data['caller_name'] as String? ?? 'مكالمة';
@@ -162,8 +143,6 @@ class NotificationService {
     return null;
   }
 
-  // ── Polling ───────────────────────────────────────────────────────────────
-
   void _startPolling() {
     _poll();
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _poll());
@@ -179,15 +158,28 @@ class NotificationService {
       final prev  = _unreadCount.value;
       _unreadCount.value = count;
 
+      if (!_initialPollDone) {
+        _initialPollDone = true;
+        return;
+      }
+
       if (count > prev) {
         final listRes = await ApiClient.instance.get(
           '/notifications', queryParameters: {'per_page': 10});
         final raw  = listRes.data;
         final list = ((raw is Map ? raw['data'] : raw) as List?) ?? [];
 
+        final prefs = await SharedPreferences.getInstance();
+        final lastShownId = prefs.getInt(_kLastShownNotifKey) ?? 0;
+        int maxIdSeen = lastShownId;
+
         for (final item in list) {
           final n = item as Map<String, dynamic>;
           if (n['read_at'] != null) continue;
+
+          final notifId = jsonInt(n['id']);
+          if (notifId <= lastShownId) continue;
+          if (notifId > maxIdSeen) maxIdSeen = notifId;
 
           final dataField = n['data'];
           final dataMap   = dataField is Map
@@ -195,13 +187,28 @@ class NotificationService {
               : <String, dynamic>{};
 
           final payload = buildPayloadFromData(dataMap);
+          final type = dataMap['type'] as String? ?? '';
+
+          if (type == 'incoming_call' && payload != null) {
+            await showIncomingCall(
+              title: n['title'] as String? ?? 'مكالمة واردة',
+              body:  n['body']  as String? ?? '',
+              payload: payload,
+            );
+            handleDeepLink(payload);
+            continue;
+          }
 
           await _showNotification(
-            id:      jsonInt(n['id']),
+            id:      notifId,
             title:   n['title'] as String? ?? 'نبض',
             body:    n['body']  as String? ?? '',
             payload: payload,
           );
+        }
+
+        if (maxIdSeen > lastShownId) {
+          await prefs.setInt(_kLastShownNotifKey, maxIdSeen);
         }
       }
     } catch (_) {}
@@ -213,15 +220,28 @@ class NotificationService {
     required String body,
     String?         payload,
   }) async {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'nabdh_therapist_channel', 'إشعارات نبض',
-        importance: Importance.high,
-        priority:   Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
+    await _plugin.show(
+      id,
+      title,
+      body,
+      LocalNotificationHelper.generalDetails(),
+      payload: payload,
     );
-    await _plugin.show(id, title, body, details, payload: payload);
+  }
+
+  /// Ringing notification for an incoming call (foreground + polling fallback).
+  Future<void> showIncomingCall({
+    required String title,
+    required String body,
+    required String payload,
+  }) async {
+    await _plugin.show(
+      payload.hashCode,
+      title,
+      body,
+      LocalNotificationHelper.callDetails,
+      payload: payload,
+    );
   }
 
   Future<void> showMessageNotification({
@@ -236,8 +256,6 @@ class NotificationService {
       payload: conversationId != null ? 'message:$conversationId' : null,
     );
   }
-
-  // ── Public API ────────────────────────────────────────────────────────────
 
   Future<void> forceRefresh() => _poll();
 

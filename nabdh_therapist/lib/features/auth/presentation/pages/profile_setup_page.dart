@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/tip_row.dart';
 
 class ProfileSetupPage extends StatefulWidget {
   const ProfileSetupPage({super.key});
@@ -562,15 +563,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('نصائح للقبول السريع:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
       const SizedBox(height: 8),
-      ...[
-        '✅  ارفع CV حديث بصيغة PDF',
-        '✅  أضف الترخيص المهني الصادر من الجهة المختصة',
-        '✅  الشهادات الجامعية تُسرّع التحقق من حسابك',
-        '📁  الملفات المقبولة: PDF، JPG، PNG (حد أقصى 10MB)',
-      ].map((t) => Padding(
-        padding: const EdgeInsets.only(bottom: 5),
-        child: Text(t, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
-      )),
+      const TipRow(icon: Icons.check_circle_outline, text: 'ارفع CV حديث بصيغة PDF'),
+      const TipRow(icon: Icons.check_circle_outline, text: 'أضف الترخيص المهني الصادر من الجهة المختصة'),
+      const TipRow(icon: Icons.check_circle_outline, text: 'الشهادات الجامعية تُسرّع التحقق من حسابك'),
+      const TipRow(
+        icon: Icons.folder_outlined,
+        iconColor: AppColors.primary,
+        text: 'الملفات المقبولة: PDF، JPG، PNG (حد أقصى 10MB)',
+      ),
     ]),
   );
 

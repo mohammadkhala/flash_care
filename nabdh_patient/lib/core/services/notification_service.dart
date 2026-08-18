@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../utils/json_utils.dart';
 
+import 'local_notification_helper.dart';
+
 const _kLastShownNotifKey = 'last_shown_notif_id';
 
 class NotificationService {
@@ -58,25 +60,12 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onForegroundTap,
     );
 
+    await LocalNotificationHelper.ensureAndroidChannels(_plugin);
+
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
     await androidPlugin?.requestNotificationsPermission();
-
-    const channel = AndroidNotificationChannel(
-      'nabdh_patient_channel', 'إشعارات نبض',
-      description: 'إشعارات تطبيق نبض للمريض',
-      importance: Importance.high,
-    );
-    await androidPlugin?.createNotificationChannel(channel);
-
-    // High-priority channel for incoming calls (fullScreenIntent)
-    const callChannel = AndroidNotificationChannel(
-      'call_channel', 'مكالمات واردة',
-      description: 'إشعارات المكالمات الواردة',
-      importance: Importance.max,
-    );
-    await androidPlugin?.createNotificationChannel(callChannel);
 
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
@@ -93,6 +82,7 @@ class NotificationService {
   // ── Tap handlers ──────────────────────────────────────────────────────────
 
   void _onForegroundTap(NotificationResponse response) {
+    if (response.actionId == kRejectCall) return;
     _handlePayload(response.payload);
   }
 
@@ -229,6 +219,17 @@ class NotificationService {
               : <String, dynamic>{};
 
           final payload = buildPayloadFromData(dataMap);
+          final type = dataMap['type'] as String? ?? '';
+
+          if (type == 'incoming_call' && payload != null) {
+            await showIncomingCall(
+              title: n['title'] as String? ?? 'مكالمة واردة',
+              body:  n['body']  as String? ?? '',
+              payload: payload,
+            );
+            handleDeepLink(payload);
+            continue;
+          }
 
           await _showNotification(
             id:      notifId,
@@ -251,15 +252,27 @@ class NotificationService {
     required String body,
     String?         payload,
   }) async {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'nabdh_patient_channel', 'إشعارات نبض',
-        importance: Importance.high,
-        priority:   Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
+    await _plugin.show(
+      id,
+      title,
+      body,
+      LocalNotificationHelper.generalDetails(),
+      payload: payload,
     );
-    await _plugin.show(id, title, body, details, payload: payload);
+  }
+
+  Future<void> showIncomingCall({
+    required String title,
+    required String body,
+    required String payload,
+  }) async {
+    await _plugin.show(
+      payload.hashCode,
+      title,
+      body,
+      LocalNotificationHelper.callDetails,
+      payload: payload,
+    );
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
