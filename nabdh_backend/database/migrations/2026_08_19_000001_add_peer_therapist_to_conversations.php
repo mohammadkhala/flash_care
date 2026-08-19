@@ -9,18 +9,26 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // therapist_id FK currently sits on the composite unique index, so
+        // add a dedicated index before dropping that unique key.
         Schema::table('conversations', function (Blueprint $table) {
-            $table->dropForeign(['patient_id']);
-            $table->dropUnique(['therapist_id', 'patient_id']);
+            $table->index('therapist_id', 'conversations_therapist_id_index');
+        });
+
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->dropUnique('conversations_therapist_id_patient_id_unique');
         });
 
         DB::statement('ALTER TABLE conversations MODIFY patient_id BIGINT UNSIGNED NULL');
 
         Schema::table('conversations', function (Blueprint $table) {
-            $table->foreign('patient_id')->references('id')->on('patients')->nullOnDelete();
-            $table->foreignId('peer_therapist_id')->nullable()->after('patient_id')
-                ->constrained('therapists')->cascadeOnDelete();
+            $table->unsignedBigInteger('peer_therapist_id')->nullable()->after('patient_id');
             $table->string('kind', 20)->default('patient')->after('peer_therapist_id');
+        });
+
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->foreign('peer_therapist_id')
+                ->references('id')->on('therapists')->cascadeOnDelete();
             $table->unique(['therapist_id', 'patient_id']);
             $table->unique(['therapist_id', 'peer_therapist_id']);
         });
@@ -33,14 +41,13 @@ return new class extends Migration
             $table->dropUnique(['therapist_id', 'patient_id']);
             $table->dropForeign(['peer_therapist_id']);
             $table->dropColumn(['peer_therapist_id', 'kind']);
-            $table->dropForeign(['patient_id']);
         });
 
         DB::statement('ALTER TABLE conversations MODIFY patient_id BIGINT UNSIGNED NOT NULL');
 
         Schema::table('conversations', function (Blueprint $table) {
-            $table->foreign('patient_id')->references('id')->on('patients')->cascadeOnDelete();
             $table->unique(['therapist_id', 'patient_id']);
+            $table->dropIndex('conversations_therapist_id_index');
         });
     }
 };
