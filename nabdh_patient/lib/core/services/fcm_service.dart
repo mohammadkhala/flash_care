@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
@@ -11,6 +11,12 @@ import 'notification_service.dart';
 /// Top-level background handler — runs in a separate Dart isolate.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+
+  // When FCM includes a `notification` block, Android already shows the tray
+  // item. Showing another local notification would duplicate it.
+  if (message.notification != null) return;
+
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(
     const InitializationSettings(
@@ -24,12 +30,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final payload = NotificationService.buildPayloadFromData(message.data);
   final isCall  = (message.data['type'] as String? ?? '').contains('call');
 
-  final title = message.notification?.title ??
-      message.data['title'] as String? ??
+  final title = message.data['title'] as String? ??
       (isCall ? 'مكالمة واردة' : 'نبض');
-  final body = message.notification?.body ??
-      message.data['body'] as String? ??
-      '';
+  final body = message.data['body'] as String? ??
+      (isCall ? 'اضغط للرد على المكالمة' : '');
 
   await plugin.show(
     message.hashCode,
@@ -74,11 +78,14 @@ class FcmService {
   static final FcmService instance = FcmService._();
 
   final _messaging = FirebaseMessaging.instance;
-  static const _permChannel = MethodChannel('com.nabdh/permissions');
 
   Future<void> init() async {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
-    _requestFullScreenIntentPermission();
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: false,
+      badge: true,
+      sound: false,
+    );
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     await _saveToken();
     _messaging.onTokenRefresh.listen(_sendTokenToServer);
@@ -86,12 +93,6 @@ class FcmService {
     FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
     final initial = await _messaging.getInitialMessage();
     if (initial != null) _onMessageOpened(initial);
-  }
-
-  Future<void> _requestFullScreenIntentPermission() async {
-    try {
-      await _permChannel.invokeMethod('requestFullScreenIntent');
-    } catch (_) {}
   }
 
   Future<void> refreshToken() => _saveToken();
@@ -116,24 +117,29 @@ class FcmService {
     final payload = NotificationService.buildPayloadFromData(message.data);
 
     if (type.contains('call') && payload != null) {
-      final title = message.notification?.title ?? 'مكالمة واردة';
-      final body  = message.notification?.body  ?? 'اضغط للرد على المكالمة';
+      final title = message.notification?.title ??
+          message.data['title'] as String? ??
+          'مكالمة واردة';
+      final body  = message.notification?.body ??
+          message.data['body'] as String? ??
+          'اضغط للرد على المكالمة';
       await NotificationService.instance.showIncomingCall(
         title: title,
         body: body,
         payload: payload,
       );
-      NotificationService.instance.handleDeepLink(payload);
       return;
     }
 
-    if (message.notification == null) return;
+    final title = message.notification?.title ?? message.data['title'] as String?;
+    final body  = message.notification?.body ?? message.data['body'] as String?;
+    if (title == null) return;
 
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.show(
       message.hashCode,
-      message.notification!.title ?? 'نبض',
-      message.notification!.body  ?? '',
+      title,
+      body ?? '',
       LocalNotificationHelper.generalDetails(),
       payload: payload,
     );

@@ -73,6 +73,33 @@ class TherapistSearchController extends Controller
         return response()->json($query->paginate($request->per_page ?? 15));
     }
 
+    /** Approved colleagues for the logged-in therapist (excludes self). */
+    public function colleagues(Request $request): JsonResponse
+    {
+        $me = $request->user()?->therapist;
+        abort_if(!$me, 403);
+
+        $request->validate([
+            'search'   => 'nullable|string',
+            'per_page' => 'nullable|integer|min:1|max:30',
+        ]);
+
+        $query = Therapist::where('is_approved', true)
+            ->where('id', '!=', $me->id)
+            ->with(['specializations', 'user'])
+            ->orderBy('full_name');
+
+        if ($request->search) {
+            $query->where(fn($q) =>
+                $q->where('full_name', 'like', "%{$request->search}%")
+                  ->orWhere('title', 'like', "%{$request->search}%")
+                  ->orWhere('city', 'like', "%{$request->search}%")
+            );
+        }
+
+        return response()->json($query->paginate($request->per_page ?? 20));
+    }
+
     public function show(Therapist $therapist): JsonResponse
     {
         abort_if(!$therapist->is_approved, 404);

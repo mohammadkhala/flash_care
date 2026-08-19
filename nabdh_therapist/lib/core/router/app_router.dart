@@ -15,6 +15,7 @@ import '../../features/home/home_page.dart';
 import '../../features/appointments/presentation/pages/appointments_page.dart';
 import '../../features/appointments/presentation/pages/appointment_detail_page.dart';
 import '../../features/messages/presentation/pages/conversations_page.dart';
+import '../../features/messages/presentation/pages/colleagues_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/programs/presentation/pages/programs_page.dart';
 import '../../features/programs/presentation/pages/create_program_page.dart';
@@ -117,6 +118,7 @@ final appRouter = GoRouter(
           builder: (_, state) => AppointmentDetailPage(id: int.parse(state.pathParameters['id']!)),
         ),
         GoRoute(path: '/messages',      builder: (_, __) => const ConversationsPage()),
+        GoRoute(path: '/colleagues',    builder: (_, __) => const ColleaguesPage()),
         GoRoute(
           path: '/messages/new',
           builder: (_, state) {
@@ -125,6 +127,7 @@ final appRouter = GoRouter(
               conversationId: 0,
               newConvoPartnerId: extra['partnerId'] as int?,
               newConvoName: extra['name'] as String?,
+              partnerType: extra['partnerType'] as String? ?? 'patient',
             );
           },
         ),
@@ -136,6 +139,7 @@ final appRouter = GoRouter(
               conversationId: int.parse(state.pathParameters['id']!),
               newConvoPartnerId: extra['partnerId'] as int?,
               newConvoName: extra['name'] as String?,
+              partnerType: extra['partnerType'] as String? ?? 'patient',
             );
           },
         ),

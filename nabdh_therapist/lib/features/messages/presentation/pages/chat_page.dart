@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/json_utils.dart';
 import '../../../calls/presentation/pages/webrtc_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -24,11 +25,13 @@ class ChatPage extends StatefulWidget {
   final int conversationId;
   final int? newConvoPartnerId;
   final String? newConvoName;
+  final String partnerType;
 
   const ChatPage({
     required this.conversationId,
     this.newConvoPartnerId,
     this.newConvoName,
+    this.partnerType = 'patient',
     super.key,
   });
 
@@ -47,6 +50,7 @@ class _ChatPageState extends State<ChatPage> {
   int? _convoId;
   int? _partnerId;
   String _partnerName = '';
+  late String _partnerType;
 
   /// True only when this is a brand-new conversation (not yet sent any message)
   bool get _isNew => _convoId == null;
@@ -56,7 +60,9 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     _convoId     = widget.conversationId > 0 ? widget.conversationId : null;
     _partnerId   = widget.newConvoPartnerId;
-    _partnerName = widget.newConvoName ?? 'المريض';
+    _partnerType = widget.partnerType;
+    _partnerName = widget.newConvoName ??
+        (widget.partnerType == 'therapist' ? 'أخصائي' : 'المريض');
     _init();
   }
 
@@ -69,8 +75,32 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _init() async {
     await _loadMe();
+    await _resolvePartner();
     await _loadMsgs();
     _timer = Timer.periodic(const Duration(seconds: 8), (_) => _loadMsgs(silent: true));
+  }
+
+  Future<void> _resolvePartner() async {
+    if (_partnerId != null || _convoId == null) return;
+    try {
+      final res = await ApiClient.instance.get('/messages/conversations');
+      final raw = res.data;
+      final list = raw is List ? raw : (raw['data'] ?? []);
+      for (final item in list) {
+        final c = item as Map;
+        if (jsonInt(c['id']) == _convoId) {
+          setState(() {
+            _partnerId = jsonInt(c['partner_id'] ?? c['patient_id']);
+            _partnerType = c['partner_type'] as String? ?? _partnerType;
+            final peer = c['peer'] as Map? ?? c['patient'] as Map? ?? {};
+            if (_partnerName.isEmpty || _partnerName == 'المريض' || _partnerName == 'أخصائي') {
+              _partnerName = peer['full_name'] as String? ?? _partnerName;
+            }
+          });
+          break;
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadMe() async {
@@ -149,9 +179,15 @@ class _ChatPageState extends State<ChatPage> {
     if (_partnerId == null) return;
     setState(() => _sending = true);
     try {
+      dynamic payload = data;
+      if (isForm && data is FormData) {
+        data.fields.add(MapEntry('partner_type', _partnerType));
+      } else if (data is Map) {
+        payload = {...data, 'partner_type': _partnerType};
+      }
       final res = await ApiClient.instance.post(
         '/messages/send/$_partnerId',
-        data: data,
+        data: payload,
         options: isForm ? Options(contentType: 'multipart/form-data') : null,
       );
       if (!mounted) return;

@@ -19,19 +19,39 @@ class MessageController extends Controller
     {
         $user = $request->user();
 
-        $query = Conversation::with(['lastMessage']);
-
         if ($user->isTherapist()) {
-            $conversations = $query->where('therapist_id', $user->therapist->id)
-                ->with('patient')
+            $tid = $user->therapist->id;
+            $conversations = Conversation::with(['lastMessage', 'patient', 'therapist', 'peerTherapist'])
+                ->where(function ($q) use ($tid) {
+                    $q->where('therapist_id', $tid)
+                      ->orWhere('peer_therapist_id', $tid);
+                })
                 ->orderByDesc('last_message_at')
                 ->paginate(20);
-        } else {
-            $conversations = $query->where('patient_id', $user->patient->id)
-                ->with('therapist')
-                ->orderByDesc('last_message_at')
-                ->paginate(20);
+
+            $conversations->getCollection()->transform(function (Conversation $c) use ($tid) {
+                if ($c->isTherapistPair()) {
+                    $peer = $c->otherTherapist($tid);
+                    $c->setAttribute('peer', $peer);
+                    $c->setAttribute('partner_id', $peer?->id);
+                    $c->setAttribute('partner_type', 'therapist');
+                    $c->setAttribute('my_unread', $c->unreadForTherapist($tid));
+                } else {
+                    $c->setAttribute('peer', $c->patient);
+                    $c->setAttribute('partner_id', $c->patient_id);
+                    $c->setAttribute('partner_type', 'patient');
+                    $c->setAttribute('my_unread', $c->unreadForTherapist($tid));
+                }
+                return $c;
+            });
+
+            return response()->json($conversations);
         }
+
+        $conversations = Conversation::with(['lastMessage', 'therapist'])
+            ->where('patient_id', $user->patient->id)
+            ->orderByDesc('last_message_at')
+            ->paginate(20);
 
         return response()->json($conversations);
     }
@@ -40,14 +60,17 @@ class MessageController extends Controller
     {
         $this->authorizeConversation($conversation, $request->user());
 
-        // Mark messages as read
         $conversation->messages()
             ->where('sender_id', '!=', $request->user()->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        $field = $request->user()->isTherapist() ? 'therapist_unread' : 'patient_unread';
-        $conversation->update([$field => 0]);
+        $user = $request->user();
+        if ($user->isTherapist()) {
+            $conversation->clearUnreadForTherapist($user->therapist->id);
+        } else {
+            $conversation->update(['patient_unread' => 0]);
+        }
 
         $messages = $conversation->messages()
             ->orderByDesc('created_at')
@@ -59,18 +82,29 @@ class MessageController extends Controller
     public function send(Request $request, int $conversationPartnerId): JsonResponse
     {
         $request->validate([
-            'content' => 'nullable|string|max:2000',
-            'type' => 'required|in:text,image,file,voice,video,location',
-            'file' => 'nullable|file|max:51200',
+            'content'      => 'nullable|string|max:2000',
+            'type'         => 'required|in:text,image,file,voice,video,location',
+            'file'         => 'nullable|file|max:51200',
+            'partner_type' => 'nullable|in:patient,therapist',
         ]);
 
         $user = $request->user();
+        $partnerType = $request->input('partner_type', 'patient');
 
-        [$therapistId, $patientId] = $user->isTherapist()
-            ? [$user->therapist->id, $conversationPartnerId]
-            : [$conversationPartnerId, $user->patient->id];
+        if ($user->isTherapist() && $partnerType === 'therapist') {
+            abort_if($conversationPartnerId === $user->therapist->id, 422, 'Cannot message yourself');
+            abort_if(!Therapist::where('id', $conversationPartnerId)->where('is_approved', true)->exists(), 404);
+            $conversation = Conversation::findOrCreateTherapistPair(
+                $user->therapist->id,
+                $conversationPartnerId
+            );
+        } else {
+            [$therapistId, $patientId] = $user->isTherapist()
+                ? [$user->therapist->id, $conversationPartnerId]
+                : [$conversationPartnerId, $user->patient->id];
 
-        $conversation = Conversation::findOrCreate($therapistId, $patientId);
+            $conversation = Conversation::findOrCreate($therapistId, $patientId);
+        }
 
         $mediaUrl = null;
         if ($request->hasFile('file')) {
@@ -80,34 +114,35 @@ class MessageController extends Controller
         }
 
         $message = $conversation->messages()->create([
-            'sender_id' => $user->id,
-            'content' => $request->content,
-            'type' => $request->type,
-            'media_url' => $mediaUrl,
+            'sender_id'  => $user->id,
+            'content'    => $request->content,
+            'type'       => $request->type,
+            'media_url'  => $mediaUrl,
             'media_name' => $request->file('file')?->getClientOriginalName(),
         ]);
 
-        $conversation->update([
-            'last_message_id' => $message->id,
-            'last_message_at' => now(),
-            ($user->isTherapist() ? 'patient_unread' : 'therapist_unread') => \DB::raw(
-                ($user->isTherapist() ? 'patient_unread' : 'therapist_unread') . ' + 1'
-            ),
-        ]);
+        $conversation->last_message_id = $message->id;
+        $conversation->last_message_at = now();
 
-        // Notify recipient
-        $recipient = $user->isTherapist()
-            ? $conversation->patient->user
-            : $conversation->therapist->user;
+        if ($conversation->isTherapistPair()) {
+            $conversation->save();
+            $conversation->incrementUnreadForOtherTherapist($user->therapist->id);
+        } else {
+            $unreadField = $user->isTherapist() ? 'patient_unread' : 'therapist_unread';
+            $conversation->save();
+            $conversation->update([
+                $unreadField => \DB::raw("$unreadField + 1"),
+            ]);
+        }
 
-        $senderName = $user->isTherapist()
-            ? $conversation->therapist->full_name
-            : $conversation->patient->full_name;
+        $conversation->refresh()->load(['patient', 'therapist', 'peerTherapist']);
+
+        [$recipient, $senderName] = $this->notifyParties($user, $conversation);
 
         $this->fcmService->send(
             $recipient,
             "رسالة من {$senderName}",
-            match($request->type) {
+            match ($request->type) {
                 'text'     => $request->content,
                 'location' => '📍 شارك موقعه',
                 default    => '📎 مرفق',
@@ -133,12 +168,34 @@ class MessageController extends Controller
         ]);
     }
 
+    private function notifyParties($user, Conversation $conversation): array
+    {
+        if ($conversation->isTherapistPair()) {
+            $other = $conversation->otherTherapist($user->therapist->id);
+            return [$other->user, $user->therapist->full_name];
+        }
+
+        $recipient = $user->isTherapist()
+            ? $conversation->patient->user
+            : $conversation->therapist->user;
+
+        $senderName = $user->isTherapist()
+            ? $conversation->therapist->full_name
+            : $conversation->patient->full_name;
+
+        return [$recipient, $senderName];
+    }
+
     private function authorizeConversation(Conversation $conversation, $user): void
     {
-        $allowed = $user->isTherapist()
-            ? $conversation->therapist_id === $user->therapist->id
-            : $conversation->patient_id === $user->patient->id;
+        if ($user->isTherapist()) {
+            $tid = $user->therapist->id;
+            $allowed = $conversation->therapist_id === $tid
+                || $conversation->peer_therapist_id === $tid;
+            abort_if(!$allowed, 403);
+            return;
+        }
 
-        abort_if(!$allowed, 403);
+        abort_if($conversation->patient_id !== $user->patient->id, 403);
     }
 }

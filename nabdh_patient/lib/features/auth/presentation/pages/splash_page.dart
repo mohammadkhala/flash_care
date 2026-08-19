@@ -65,9 +65,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     body: Container(
       decoration: const BoxDecoration(gradient: AppGradients.hero),
       child: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: const Alignment(0, -0.28),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // ── Animated Logo ───────────────────────────────────────
               FadeTransition(

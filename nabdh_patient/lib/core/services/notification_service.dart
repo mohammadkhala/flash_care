@@ -227,7 +227,6 @@ class NotificationService {
               body:  n['body']  as String? ?? '',
               payload: payload,
             );
-            handleDeepLink(payload);
             continue;
           }
 

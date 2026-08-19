@@ -22,8 +22,12 @@ class NotificationService {
 
   ValueNotifier<int> get unreadCount => _unreadCount;
 
+  /// True if app was launched by tapping a notification (cold start).
+  static bool hadPendingAtStartup = false;
+
   static void storePendingPayload(String? payload) {
     _pendingPayload = payload;
+    if (payload != null) hadPendingAtStartup = true;
   }
 
   void setNavigator(void Function(String route, [Object? extra]) navigate) {
@@ -55,7 +59,10 @@ class NotificationService {
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
       final payload = launch!.notificationResponse?.payload;
-      if (payload != null) _pendingPayload = payload;
+      if (payload != null) {
+        _pendingPayload = payload;
+        hadPendingAtStartup = true;
+      }
     }
 
     _startPolling();
@@ -195,7 +202,6 @@ class NotificationService {
               body:  n['body']  as String? ?? '',
               payload: payload,
             );
-            handleDeepLink(payload);
             continue;
           }
 

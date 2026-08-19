@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nabd_logo.dart';
 
@@ -39,7 +40,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(milliseconds: 2200));
+    final hasNotif = NotificationService.hadPendingAtStartup;
+    await Future.delayed(Duration(milliseconds: hasNotif ? 300 : 2200));
     if (!mounted) return;
     final token  = await ApiClient.getToken();
     final prefs  = await SharedPreferences.getInstance();
@@ -59,9 +61,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     body: Container(
       decoration: const BoxDecoration(gradient: AppGradients.hero),
       child: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: const Alignment(0, -0.28),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               FadeTransition(
                 opacity: _fadeAnim,

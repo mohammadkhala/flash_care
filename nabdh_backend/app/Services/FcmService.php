@@ -26,26 +26,22 @@ class FcmService
             $user->fcm_token,
             $title,
             $body,
-            array_merge($data, ['type' => $type]),
-            $this->channelFor($user, $type),
+            array_merge($data, [
+                'type'  => $type,
+                'title' => $title,
+                'body'  => $body,
+            ]),
+            $this->channelFor($user),
         );
     }
 
     /**
-     * Android notification channel to deliver on.
-     *
-     * When the app is backgrounded or closed, Android renders the notification
-     * itself using the channel named in the payload. Without one it falls back
-     * to a low-importance default channel that makes no sound at all — which is
-     * why incoming calls used to arrive silently. Calls get the max-importance
-     * call channel; everything else gets the app's own channel.
+     * Named high-importance channel so Android shows a tray notification
+     * when the app is backgrounded or killed. Calls use the same channel
+     * (a tap-to-open alert, not a ringing incoming-call UI).
      */
-    private function channelFor(User $user, string $type): string
+    private function channelFor(User $user): string
     {
-        if (str_contains($type, 'call')) {
-            return 'call_channel';
-        }
-
         return $user->isTherapist() ? 'nabdh_therapist_channel' : 'nabdh_patient_channel';
     }
 
@@ -95,10 +91,11 @@ class FcmService
                     'android'      => [
                         'priority'     => 'high',
                         'notification' => [
-                            'sound'                  => 'default',
-                            'channel_id'             => $channelId,
-                            'notification_priority'  => 'PRIORITY_MAX',
+                            'sound'                   => 'default',
+                            'channel_id'              => $channelId,
+                            'notification_priority'   => 'PRIORITY_HIGH',
                             'default_vibrate_timings' => true,
+                            'click_action'            => 'FLUTTER_NOTIFICATION_CLICK',
                         ],
                     ],
                     'apns' => [
@@ -107,8 +104,8 @@ class FcmService
                             'apns-push-type' => 'alert',
                         ],
                         'payload' => ['aps' => [
-                            'sound'             => 'default',
-                            'interruption-level' => $channelId === 'call_channel' ? 'time-sensitive' : 'active',
+                            'sound'              => 'default',
+                            'interruption-level' => 'active',
                         ]],
                     ],
                 ],

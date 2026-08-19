@@ -186,9 +186,9 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (icon: Icons.article_outlined,       label: S.myArticles,    route: '/articles',   color: AppColors.accent),
-      (icon: Icons.video_call_outlined,    label: S.myReels,       route: '/reels',      color: AppColors.primary),
-      (icon: Icons.bar_chart,              label: S.myStatistics,  route: '/statistics', color: const Color(0xFF7C3AED)),
+      (icon: Icons.groups_outlined,        label: 'الأخصائيون', route: '/colleagues',  color: AppColors.accent),
+      (icon: Icons.article_outlined,       label: S.myArticles,    route: '/articles',   color: AppColors.primary),
+      (icon: Icons.video_call_outlined,    label: S.myReels,       route: '/reels',      color: const Color(0xFF7C3AED)),
       (icon: Icons.fitness_center_outlined,label: S.myPrograms,    route: '/programs',   color: const Color(0xFFEF6C00)),
     ];
 
@@ -197,7 +197,9 @@ class _QuickActions extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: GestureDetector(
-            onTap: () => context.go(a.route),
+            onTap: () => a.route.startsWith('/colleagues')
+                ? context.push(a.route)
+                : context.go(a.route),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(

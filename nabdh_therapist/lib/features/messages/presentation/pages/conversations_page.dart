@@ -87,18 +87,25 @@ class _ConversationsPageState extends State<ConversationsPage> {
                         const Divider(height: 1, indent: 80, endIndent: 16, color: AppColors.borderLight),
                     itemBuilder: (_, i) {
                       final c = _convs[i] as Map;
-                      final patient  = c['patient'] as Map? ?? {};
+                      final partnerType = c['partner_type'] as String? ?? 'patient';
+                      final peer     = (c['peer'] as Map?) ??
+                          (c['patient'] as Map?) ?? {};
                       final last     = c['last_message'] as Map? ?? {};
-                      final name     = patient['full_name'] as String? ?? 'مريض';
-                      final unread   = jsonInt(c['therapist_unread']);
+                      final name     = peer['full_name'] as String? ??
+                          (partnerType == 'therapist' ? 'أخصائي' : 'مريض');
+                      final unread   = jsonInt(c['my_unread'] ?? c['therapist_unread']);
                       final content  = last['content'] as String? ?? '';
                       final time     = last['created_at'] as String? ?? c['last_message_at'] as String?;
-                      final partnerId = jsonInt(c['patient_id']);
+                      final partnerId = jsonInt(c['partner_id'] ?? c['patient_id']);
 
                       return InkWell(
                         onTap: () => context.push(
                           '/messages/${c['id']}',
-                          extra: {'name': name, 'partnerId': partnerId},
+                          extra: {
+                            'name': name,
+                            'partnerId': partnerId,
+                            'partnerType': partnerType,
+                          },
                         ).then((_) => _load()),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -159,7 +166,45 @@ class _ConversationsPageState extends State<ConversationsPage> {
   );
 
   Future<void> _openNewConversation() async {
-    // Load patients list
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline, color: AppColors.primary),
+              title: const Text('محادثة مع مريض'),
+              onTap: () => Navigator.pop(ctx, 'patient'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined, color: AppColors.accent),
+              title: const Text('محادثة مع أخصائي'),
+              onTap: () => Navigator.pop(ctx, 'therapist'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'therapist') {
+      context.push('/colleagues');
+      return;
+    }
+    await _openPatientPicker();
+  }
+
+  Future<void> _openPatientPicker() async {
     try {
       final res = await ApiClient.instance.get('/therapist/patients');
       final patients = res.data is List ? res.data : (res.data['data'] ?? []);
@@ -206,11 +251,19 @@ class _ConversationsPageState extends State<ConversationsPage> {
 
     if (existing != null) {
       if (!mounted) return;
-      context.push('/messages/${existing['id']}', extra: {'name': name, 'partnerId': patientId});
+      context.push('/messages/${existing['id']}', extra: {
+        'name': name,
+        'partnerId': patientId,
+        'partnerType': 'patient',
+      });
     } else {
       // Navigate to chat — the conversation will be created on first message
       if (!mounted) return;
-      context.push('/messages/new', extra: {'name': name, 'partnerId': patientId});
+      context.push('/messages/new', extra: {
+        'name': name,
+        'partnerId': patientId,
+        'partnerType': 'patient',
+      });
     }
   }
 

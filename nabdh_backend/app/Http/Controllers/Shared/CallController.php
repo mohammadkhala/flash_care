@@ -39,9 +39,15 @@ class CallController extends Controller
                 $callerName = $user->patient->full_name;
             }
         } else {
-            $conv    = Conversation::findOrFail($request->conversation_id);
+            $conv    = Conversation::with(['patient', 'therapist', 'peerTherapist'])->findOrFail($request->conversation_id);
             $channel = 'webrtc-conv-' . $request->conversation_id;
-            if ($user->isTherapist()) {
+            if ($conv->isTherapistPair()) {
+                abort_if(!$user->isTherapist(), 403);
+                $other = $conv->otherTherapist($user->therapist->id);
+                abort_if(!$other, 422);
+                $calleeId   = $other->user_id;
+                $callerName = $user->therapist->full_name;
+            } elseif ($user->isTherapist()) {
                 $calleeId   = $conv->patient->user_id;
                 $callerName = $user->therapist->full_name;
             } else {

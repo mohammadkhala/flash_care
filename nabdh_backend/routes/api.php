@@ -118,6 +118,8 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json($patients);
         });
 
+        Route::get('colleagues', [TherapistSearchController::class, 'colleagues']);
+
         // Home Programs
         Route::get('home-programs', [HomeProgramController::class, 'index']);
         Route::post('home-programs', [HomeProgramController::class, 'store']);

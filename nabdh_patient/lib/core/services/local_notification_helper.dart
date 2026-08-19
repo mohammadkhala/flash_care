@@ -32,8 +32,8 @@ class LocalNotificationHelper {
     await android.createNotificationChannel(const AndroidNotificationChannel(
       callChannelId,
       callChannelName,
-      description: 'إشعارات المكالمات الواردة',
-      importance: Importance.max,
+      description: 'إشعار للمكالمات — اضغط للرد',
+      importance: Importance.high,
       playSound: true,
       enableVibration: true,
     ));
@@ -48,37 +48,11 @@ class LocalNotificationHelper {
           icon: '@mipmap/ic_launcher',
           playSound: true,
           enableVibration: true,
+          autoCancel: true,
         ),
       );
 
-  static const NotificationDetails callDetails = NotificationDetails(
-    android: AndroidNotificationDetails(
-      callChannelId,
-      callChannelName,
-      importance: Importance.max,
-      priority: Priority.max,
-      fullScreenIntent: true,
-      category: AndroidNotificationCategory.call,
-      visibility: NotificationVisibility.public,
-      ongoing: true,
-      autoCancel: false,
-      icon: '@mipmap/ic_launcher',
-      playSound: true,
-      enableVibration: true,
-      actions: [
-        AndroidNotificationAction(
-          kRejectCall,
-          'رفض',
-          showsUserInterface: false,
-          cancelNotification: true,
-        ),
-        AndroidNotificationAction(
-          kAcceptCall,
-          'قبول',
-          showsUserInterface: true,
-          cancelNotification: true,
-        ),
-      ],
-    ),
-  );
+  /// Same as a normal notification — tap opens the incoming-call screen.
+  /// No full-screen intent and no looping ringtone.
+  static NotificationDetails get callDetails => generalDetails();
 }
