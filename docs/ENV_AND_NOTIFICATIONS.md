@@ -160,12 +160,27 @@ php artisan schedule:list
 
 ---
 
+## رسائل التحقق (WaSender / واتساب)
+
+- المفتاح: `WASENDER_API_KEY` — آخر تحقق 2026-10-13: صالح والجلسة `connected`
+- فحص الجلسة (لا يرسل رسائل):
+
+```bash
+curl -s -H "Authorization: Bearer $WASENDER_API_KEY" https://www.wasenderapi.com/api/status
+```
+
+- حماية الحساب: رسالة واحدة كل 5 ثوانٍ
+- الأرقام الفلسطينية: الكود يُرسل بالمفتاح المختار، وإن لم يكن الرقم على واتساب يعيد المحاولة بالمفتاح الآخر (+970 ↔ +972). الصفر في بداية الرقم يُحذف تلقائياً
+- الأخطاء في السجل: `grep "\[OTP\]" storage/logs/laravel.log | tail`
+
 ## إعدادات الأمان على السيرفر
 
 ```env
 APP_ENV=production
 APP_DEBUG=false
 ```
+
+مضبوطة على السيرفر منذ 2026-10-13 (كانت `local` / `true`). النسخة السابقة من `.env`: `storage/app/env-backup-20261013`.
 
 ## آخر تحقق ناجح (السيرفر)
 
