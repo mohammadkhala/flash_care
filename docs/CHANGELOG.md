@@ -27,7 +27,9 @@
 
 **المشكلة:** ظهر إشعار ولم يرنّ الجهاز. السجل: كل إرسال FCM فشل بـ `invalid_grant — Invalid JWT Signature` (المفتاح `a3e8e7…` من 2 يونيو أُلغي في Google). الإشعار الظاهر كان من الجلب الدوري في التطبيق، لا من Firebase.
 
-**الإصلاح:** مفتاح جديد `cad7e65b…` من Firebase Console → `storage/app/firebase-credentials.json` (600، sarfesak). القديم محفوظ: `storage/app/firebase-credentials.backup-20261013-a3e8e7.json`. تحقق: OAuth يعمل، و `validate_only` إلى هاتفي #24 و #31 = HTTP 200.
+**الإصلاح:** مفتاح جديد `cad7e65b…` من Firebase Console → `storage/app/firebase-credentials.json` (600، sarfesak). القديم محفوظ: `storage/app/firebase-credentials.backup-20261013-a3e8e7.json`. تحقق: OAuth يعمل، و `validate_only` إلى هاتفي #24 و #31 = HTTP 200. إشعار حقيقي «تجربة إشعار ✅» أُرسل 18:04 للجوالين وقبله Firebase (بانتظار تأكيد الوصول). لا حاجة لنسخة APK جديدة.
+
+**تجربة OTP حقيقية:** 17:51 كود عبر «نسيت كلمة المرور» إلى `0599814758` (+970، بالصفر) → أُرسل إلى `+970599814758` من أول محاولة (msgId `88008721`)، 1.4 ثانية.
 
 ## 2026-10-13 — رسائل التحقق عبر واتساب + وضع الإنتاج (`88266b9`)
 

@@ -49,7 +49,7 @@ git pull origin master
 |--------|--------|
 | كود محلي | `master` @ `88266b9` ✅ |
 | سيرفر الإنتاج | نُشر 2026-10-13 (`88266b9`) ✅ |
-| Firebase | `nabd-3e72e` ✅ |
+| Firebase | `nabd-3e72e` — مفتاح جديد 2026-10-13 (القديم كان ملغى)، إشعار تجريبي للجوالين قُبل ✅ |
 | Agora | App ID يطابق التطبيقين، توليد التوكن يعمل ✅ |
 | واتساب (WaSender) | المفتاح صالح، الجلسة متصلة، إصلاح +970/+972 منشور ✅ |
 | وضع السيرفر | `APP_ENV=production` · `APP_DEBUG=false` ✅ |
@@ -67,4 +67,5 @@ git pull origin master
 
 1. على السيرفر: `fetch` + `checkout nabdh_backend` + `rsync` ثم `migrate` + `cache`. لا تعتمد على `git pull` وحده.
 2. `FIREBASE_PROJECT_ID` يجب أن يكون `nabd-3e72e` (بدون حرف **h**). القيمة `nabdh-3e72e` تسبب 403.
-3. بعد تثبيت أي APK جديد: خروج ثم دخول لتحديث توكن الإشعارات.
+3. بعد تثبيت أي APK جديد: فتح التطبيق مرة والحساب مسجّل دخول يكفي لتحديث توكن الإشعارات (لا حاجة لحسابات جديدة).
+4. إذا توقفت الإشعارات والرنين معاً وظهر في السجل `Invalid JWT Signature`: مفتاح Firebase ملغى — الخطوات في [ENV_AND_NOTIFICATIONS.md](./ENV_AND_NOTIFICATIONS.md).
