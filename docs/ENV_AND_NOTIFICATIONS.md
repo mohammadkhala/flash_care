@@ -160,6 +160,11 @@ php artisan schedule:list
 
 ---
 
+## مفتاح Firebase (إذا توقف الرنين والإشعارات)
+
+العَرَض: في السجل `FCM push failed … invalid_grant — Invalid JWT Signature` → المفتاح أُلغي.
+الحل: Firebase Console → nabd-3e72e → Project settings → Service accounts → Generate new private key، ثم استبدال `storage/app/firebase-credentials.json` (مالك `sarfesak`، صلاحية 600). لا حاجة لنسخة تطبيق جديدة. آخر استبدال: 2026-10-13 (`cad7e65b…`).
+
 ## رسائل التحقق (WaSender / واتساب)
 
 - المفتاح: `WASENDER_API_KEY` — آخر تحقق 2026-10-13: صالح والجلسة `connected`

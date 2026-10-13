@@ -23,6 +23,12 @@
 
 **الحالة:** ⏳ في انتظار تجربة المستخدم على جوالين — الخطة والتشخيص في [CALLS_TESTING.md](./CALLS_TESTING.md)
 
+## 2026-10-13 — مفتاح Firebase جديد (سبب عدم الرنين)
+
+**المشكلة:** ظهر إشعار ولم يرنّ الجهاز. السجل: كل إرسال FCM فشل بـ `invalid_grant — Invalid JWT Signature` (المفتاح `a3e8e7…` من 2 يونيو أُلغي في Google). الإشعار الظاهر كان من الجلب الدوري في التطبيق، لا من Firebase.
+
+**الإصلاح:** مفتاح جديد `cad7e65b…` من Firebase Console → `storage/app/firebase-credentials.json` (600، sarfesak). القديم محفوظ: `storage/app/firebase-credentials.backup-20261013-a3e8e7.json`. تحقق: OAuth يعمل، و `validate_only` إلى هاتفي #24 و #31 = HTTP 200.
+
 ## 2026-10-13 — رسائل التحقق عبر واتساب + وضع الإنتاج (`88266b9`)
 
 **الفحص:** مفتاح WaSender المرسل من العميل = نفس المفتاح على السيرفر، صالح، والجلسة `connected`.
