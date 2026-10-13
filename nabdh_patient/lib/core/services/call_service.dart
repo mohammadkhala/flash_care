@@ -127,16 +127,27 @@ class CallService {
     } catch (_) {}
   }
 
-  void setNavigator(void Function(String route, [Object? extra]) navigate) {
+  /// [isReady] must turn true once the splash screen has handed over
+  /// (otherwise its go('/home') would replace the call screen).
+  void setNavigator(
+    void Function(String route, [Object? extra]) navigate, {
+    required bool Function() isReady,
+  }) {
     _navigate = navigate;
     final pending = _pendingAccept;
     if (pending != null) {
       _pendingAccept = null;
-      // Let the splash screen hand over to /home first, otherwise its go()
-      // would replace the call screen.
-      Future.delayed(const Duration(milliseconds: 1200),
-          () => _navigate?.call('/call', pending));
+      unawaited(_openWhenReady(pending, isReady));
     }
+  }
+
+  Future<void> _openWhenReady(
+      Map<String, dynamic> extra, bool Function() isReady) async {
+    for (var i = 0; i < 50 && !isReady(); i++) {
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+    _navigate?.call('/call', extra);
   }
 
   void _onEvent(CallEvent? event) {

@@ -50,6 +50,8 @@ void main() async {
     );
     CallService.instance.setNavigator(
       (route, [extra]) => appRouter.push(route, extra: extra),
+      isReady: () =>
+          appRouter.routerDelegate.currentConfiguration.uri.path != '/splash',
     );
   });
 }

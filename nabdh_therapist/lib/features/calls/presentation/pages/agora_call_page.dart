@@ -92,7 +92,14 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     _pollTimer?.cancel();
     _durationTimer?.cancel();
     _ringTimeout?.cancel();
-    if (!_ended) _leaveMedia();
+    if (!_ended) {
+      // Screen closed without "إنهاء" — still tell the other side.
+      _ended = true;
+      ApiClient.instance
+          .post('/calls/$_channel/status', data: {'status': 'ended'})
+          .then((_) {}, onError: (_) {});
+      _leaveMedia();
+    }
     if (CallService.instance.activeChannel == _channel) {
       CallService.instance.activeChannel = null;
     }
@@ -122,6 +129,12 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
           body['conversation_id'] = widget.conversationId;
         }
         await ApiClient.instance.post('/calls/initiate', data: body);
+        if (_ended) {
+          // Hung up while the ring request was in flight: stop that ring.
+          await ApiClient.instance
+              .post('/calls/$_channel/status', data: {'status': 'ended'});
+          return;
+        }
       } else {
         await ApiClient.instance.post('/calls/$_channel/answer');
       }
@@ -158,8 +171,13 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
       );
       engine.registerEventHandler(_handler!);
 
+      // The engine is shared between calls: undo mute / camera-off left over
+      // from the previous call.
+      await engine.muteLocalAudioStream(false);
+      await engine.muteLocalVideoStream(false);
       if (widget.isVideo) {
         await engine.enableVideo();
+        await engine.enableLocalVideo(true);
         await engine.startPreview();
       } else {
         await engine.disableVideo();
