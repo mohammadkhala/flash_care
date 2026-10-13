@@ -26,8 +26,7 @@ import '../../features/statistics/statistics_page.dart' show StatisticsPage;
 import '../../features/articles/presentation/pages/articles_page.dart';
 import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
-import '../../features/calls/presentation/pages/webrtc_call_page.dart';
-import '../../features/calls/presentation/pages/incoming_call_page.dart';
+import '../../features/calls/presentation/pages/agora_call_page.dart';
 import '../../features/assessments/presentation/pages/assessment_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
@@ -85,24 +84,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/call',
       builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>? ?? {};
-        return WebRtcCallPage(
-          conversationId: extra['conversationId'] as int? ?? 0,
-          peerName:       extra['peerName']       as String? ?? 'المريض',
-          isVideo:        extra['isVideo']        as bool?   ?? true,
-          isCaller:       extra['isCaller']       as bool?   ?? true,
-          incomingChannel: extra['channel']       as String?,
-        );
-      },
-    ),
-    GoRoute(
-      path: '/incoming-call',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>? ?? {};
-        return IncomingCallPage(
-          channel:    extra['channel']    as String? ?? '',
-          callerName: extra['callerName'] as String? ?? 'مكالمة',
-          isVideo:    extra['isVideo']    as bool?   ?? false,
+        final extra = state.extra as Map? ?? {};
+        return AgoraCallPage(
+          conversationId:  extra['conversationId'] as int?    ?? 0,
+          appointmentId:   extra['appointmentId']  as int?    ?? 0,
+          peerName:        extra['peerName']       as String? ?? 'المريض',
+          isVideo:         extra['isVideo']        as bool?   ?? true,
+          isCaller:        extra['isCaller']       as bool?   ?? true,
+          incomingChannel: extra['channel']        as String?,
+          callkitId:       extra['callkitId']      as String?,
         );
       },
     ),

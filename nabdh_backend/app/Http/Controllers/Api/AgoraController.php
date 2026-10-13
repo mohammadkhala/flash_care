@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\Agora\AccessToken2;
 use App\Services\Agora\ServiceRtc;
+use App\Services\CallChannel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,6 +23,12 @@ class AgoraController extends Controller
             'channel' => ['required', 'string', 'max:64'],
             'uid'     => ['nullable', 'integer', 'min:0'],
         ]);
+
+        abort_unless(
+            CallChannel::allows($request->input('channel'), $request->user()->id),
+            403,
+            'غير مصرح لك بالانضمام إلى هذه المكالمة'
+        );
 
         $appId   = config('services.agora.app_id');
         $appCert = config('services.agora.app_certificate');

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/widgets/call_setup_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -40,6 +41,9 @@ class _HomePageState extends State<HomePage> {
     _unread = NotificationService.instance.unreadCount.value;
     _loadAll();
     _loadMood();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) CallSetupSheet.maybeShow(context);
+    });
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:dio/dio.dart';
 import '../constants/app_constants.dart';
 import '../network/api_client.dart';
 
@@ -13,40 +14,35 @@ class AgoraService {
   static final AgoraService instance = AgoraService._();
 
   RtcEngine? _engine;
-  bool _initializing = false;
+  Future<RtcEngine>? _initFuture;
 
   /// Fetch a short-lived RTC token for [channel] from our Laravel backend.
-  Future<String> fetchToken({required String channel, int uid = 0}) async {
+  Future<String> fetchToken(String channel) async {
     try {
       final res = await ApiClient.instance.post(
         '/agora/token',
-        data: {'channel': channel, 'uid': uid},
+        data: {'channel': channel, 'uid': 0},
       );
       final token = res.data['token'] as String?;
       if (token == null || token.isEmpty) {
-        throw Exception('الخادم لم يُرجع رمزاً — تأكد من إعداد AGORA_APP_ID في .env');
+        throw Exception('الخادم لم يُرجع رمز الاتصال');
       }
       return token;
-    } on Exception {
-      rethrow;
-    } catch (e) {
-      throw Exception('فشل جلب رمز الاتصال: $e');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        throw Exception('غير مصرح لك بالانضمام إلى هذه المكالمة');
+      }
+      throw Exception('تعذّر الاتصال بالخادم');
     }
   }
 
   /// Returns the shared [RtcEngine], initializing it if necessary.
-  /// The engine is a singleton — it is never released between calls.
-  Future<RtcEngine> getEngine() async {
-    if (_engine != null) return _engine!;
+  Future<RtcEngine> getEngine() {
+    if (_engine != null) return Future.value(_engine!);
+    return _initFuture ??= _init();
+  }
 
-    if (_initializing) {
-      while (_initializing) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-      if (_engine != null) return _engine!;
-    }
-
-    _initializing = true;
+  Future<RtcEngine> _init() async {
     try {
       final engine = createAgoraRtcEngine();
       await engine.initialize(const RtcEngineContext(
@@ -55,13 +51,9 @@ class AgoraService {
       ));
       _engine = engine;
       return engine;
-    } finally {
-      _initializing = false;
+    } catch (_) {
+      _initFuture = null;
+      rethrow;
     }
-  }
-
-  /// Leave the current channel (safe to call even if not joined).
-  Future<void> leaveChannel() async {
-    try { await _engine?.leaveChannel(); } catch (_) {}
   }
 }

@@ -1,10 +1,8 @@
-import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../constants/app_constants.dart';
 import '../network/api_client.dart';
+import 'call_service.dart';
 import 'local_notification_helper.dart';
 import 'notification_service.dart';
 
@@ -13,9 +11,16 @@ import 'notification_service.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
+  // Calls arrive as data-only pushes so this handler runs even when the app
+  // is killed and can show the ringing screen.
+  if (await _handleCallMessage(message.data)) return;
+
   // When FCM includes a `notification` block, Android already shows the tray
   // item. Showing another local notification would duplicate it.
   if (message.notification != null) return;
+
+  final title = message.data['title'] as String?;
+  if (title == null) return;
 
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(
@@ -24,53 +29,36 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ),
     onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationTap,
   );
-
   await LocalNotificationHelper.ensureAndroidChannels(plugin);
-
-  final payload = NotificationService.buildPayloadFromData(message.data);
-  final isCall  = (message.data['type'] as String? ?? '').contains('call');
-
-  final title = message.data['title'] as String? ??
-      (isCall ? 'مكالمة واردة' : 'نبض');
-  final body = message.data['body'] as String? ??
-      (isCall ? 'اضغط للرد على المكالمة' : '');
 
   await plugin.show(
     message.hashCode,
     title,
-    body,
-    isCall ? LocalNotificationHelper.callDetails : LocalNotificationHelper.generalDetails(),
-    payload: payload,
+    message.data['body'] as String? ?? '',
+    LocalNotificationHelper.generalDetails(),
+    payload: NotificationService.buildPayloadFromData(message.data),
   );
+}
+
+/// Returns true when [data] was a call signal and has been handled.
+Future<bool> _handleCallMessage(Map<String, dynamic> data) async {
+  switch (data['type']) {
+    case 'incoming_call':
+      if (data['channel'] != CallService.instance.activeChannel) {
+        await showIncomingCallUi(data);
+      }
+      return true;
+    case 'call_ended':
+      final channel = data['channel'] as String?;
+      if (channel != null) await endIncomingCallUi(channel);
+      return true;
+  }
+  return false;
 }
 
 @pragma('vm:entry-point')
 void onBackgroundNotificationTap(NotificationResponse response) {
-  if (response.actionId == kRejectCall) {
-    _backgroundRejectCall(response.payload);
-    return;
-  }
   NotificationService.storePendingPayload(response.payload);
-}
-
-Future<void> _backgroundRejectCall(String? payload) async {
-  if (payload == null || !payload.startsWith('call:')) return;
-  final channel = payload.substring('call:'.length).split('|').first;
-  if (channel.isEmpty) return;
-  try {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: AppConstants.tokenKey);
-    if (token == null) return;
-    final dio = Dio(BaseOptions(
-      baseUrl: AppConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    ));
-    await dio.post('/calls/$channel/status', data: {'status': 'rejected'});
-  } catch (_) {}
 }
 
 class FcmService {
@@ -113,24 +101,9 @@ class FcmService {
   }
 
   Future<void> _onForegroundMessage(RemoteMessage message) async {
-    final type = message.data['type'] as String? ?? '';
+    if (await _handleCallMessage(message.data)) return;
+
     final payload = NotificationService.buildPayloadFromData(message.data);
-
-    if (type.contains('call') && payload != null) {
-      final title = message.notification?.title ??
-          message.data['title'] as String? ??
-          'مكالمة واردة';
-      final body  = message.notification?.body ??
-          message.data['body'] as String? ??
-          'اضغط للرد على المكالمة';
-      await NotificationService.instance.showIncomingCall(
-        title: title,
-        body: body,
-        payload: payload,
-      );
-      return;
-    }
-
     final title = message.notification?.title ?? message.data['title'] as String?;
     final body  = message.notification?.body ?? message.data['body'] as String?;
     if (title == null) return;

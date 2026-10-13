@@ -1,17 +1,15 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-const kAcceptCall = 'accept_call';
-const kRejectCall = 'reject_call';
-
 const therapistAppChannelId   = 'nabdh_therapist_channel';
 const therapistAppChannelName = 'إشعارات نبض';
 
 /// Shared channel + notification details for FCM background isolate and foreground.
+/// Incoming calls ring through flutter_callkit_incoming, not these channels.
 class LocalNotificationHelper {
   LocalNotificationHelper._();
 
-  static const callChannelId   = 'call_channel';
-  static const callChannelName = 'مكالمات واردة';
+  /// Old tap-to-answer call channel; removed so it no longer shows in settings.
+  static const _legacyCallChannelId = 'call_channel';
 
   static Future<void> ensureAndroidChannels(
     FlutterLocalNotificationsPlugin plugin,
@@ -29,14 +27,9 @@ class LocalNotificationHelper {
       enableVibration: true,
     ));
 
-    await android.createNotificationChannel(const AndroidNotificationChannel(
-      callChannelId,
-      callChannelName,
-      description: 'إشعار للمكالمات — اضغط للرد',
-      importance: Importance.high,
-      playSound: true,
-      enableVibration: true,
-    ));
+    try {
+      await android.deleteNotificationChannel(_legacyCallChannelId);
+    } catch (_) {}
   }
 
   static NotificationDetails generalDetails() => const NotificationDetails(
@@ -51,6 +44,4 @@ class LocalNotificationHelper {
           autoCancel: true,
         ),
       );
-
-  static NotificationDetails get callDetails => generalDetails();
 }

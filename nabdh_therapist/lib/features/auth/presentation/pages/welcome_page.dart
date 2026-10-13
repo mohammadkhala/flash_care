@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/nabd_logo.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -24,23 +25,7 @@ class WelcomePage extends StatelessWidget {
                 const Spacer(flex: 2),
 
                 // Logo
-                Container(
-                  width: 100, height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'نبض',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
+                const NabdLogo(size: 110, onDark: true),
 
                 const SizedBox(height: 28),
                 const Text(

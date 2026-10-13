@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/call_setup_sheet.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -340,6 +341,27 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(width: 12),
                         Expanded(child: Text(S.language,
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                        const Icon(Icons.chevron_left_rounded,
+                            color: AppColors.textSecondary, size: 20),
+                      ]),
+                    ),
+                  ),
+                  _divider(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => CallSetupSheet.show(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        Container(padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.ring_volume_outlined,
+                              color: AppColors.success, size: 18)),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('إعدادات المكالمات',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
                         const Icon(Icons.chevron_left_rounded,
                             color: AppColors.textSecondary, size: 20),
                       ]),

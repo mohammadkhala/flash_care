@@ -46,8 +46,19 @@ dependencies {
 }
 
 android.packagingOptions {
+    // Compressed native libs: much smaller APK to share; extracted on install.
+    jniLibs.useLegacyPackaging = true
     pickFirst("lib/x86/libc++_shared.so")
     pickFirst("lib/x86_64/libc++_shared.so")
     pickFirst("lib/arm64-v8a/libc++_shared.so")
     pickFirst("lib/armeabi-v7a/libc++_shared.so")
+    // Optional Agora extensions this app never enables (~29 MB per ABI).
+    for (ext in listOf(
+        "lip_sync", "clear_vision", "spatial_audio", "face_capture",
+        "segmentation", "audio_beauty", "content_inspect",
+        "video_quality_analyzer", "video_av1_encoder", "face_detection",
+        "screen_capture",
+    )) {
+        exclude("lib/*/libagora_${ext}_extension.so")
+    }
 }

@@ -177,11 +177,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('documents/{document}', [PatientDocumentController::class, 'destroy']);
     });
 
-    // ── WebRTC Call Signaling ─────────────────────────────────
+    // ── Call state (media via Agora) ──────────────────────────
     Route::post('calls/initiate',          [CallController::class, 'initiate']);
     Route::get('calls/{channel}',          [CallController::class, 'show']);
     Route::post('calls/{channel}/answer',  [CallController::class, 'answer']);
-    Route::post('calls/{channel}/ice',     [CallController::class, 'addIce']);
     Route::post('calls/{channel}/status',  [CallController::class, 'updateStatus']);
 
     // ── Shared Routes ─────────────────────────────────────────

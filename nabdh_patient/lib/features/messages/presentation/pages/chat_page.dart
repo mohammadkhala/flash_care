@@ -11,7 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../calls/presentation/pages/webrtc_call_page.dart';
+import '../../../calls/presentation/pages/agora_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 
 String _fix(String? url) {
@@ -258,7 +258,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => WebRtcCallPage(
+      builder: (_) => AgoraCallPage(
         conversationId: _convoId!,
         peerName:       _partnerName.isNotEmpty ? _partnerName : 'الأخصائي',
         isVideo:        isVideo,

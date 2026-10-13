@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/widgets/nabd_logo.dart';
 import '../../../../core/widgets/country_code_picker.dart';
 
 class PhoneInputPage extends StatefulWidget {
@@ -83,18 +84,7 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
             children: [
               const SizedBox(height: 40),
               // Logo
-              Center(
-                child: Container(
-                  width: 80, height: 80,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Center(
-                    child: Text('نبض', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'Cairo')),
-                  ),
-                ),
-              ),
+              const Center(child: NabdLogo(size: 72)),
               const SizedBox(height: 40),
               Text('إنشاء حساب جديد', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),

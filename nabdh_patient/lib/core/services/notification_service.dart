@@ -82,42 +82,15 @@ class NotificationService {
   // ── Tap handlers ──────────────────────────────────────────────────────────
 
   void _onForegroundTap(NotificationResponse response) {
-    if (response.actionId == kRejectCall) return;
     _handlePayload(response.payload);
   }
 
   void _handlePayload(String? payload) {
     if (payload == null || payload.isEmpty) return;
 
-    // Incoming call: navigate directly with extra data (no tap needed)
-    if (payload.startsWith('call:')) {
-      _handleCallPayload(payload);
-      return;
-    }
-
     final route = _payloadToRoute(payload);
     if (_navigate != null) {
       Future.delayed(const Duration(milliseconds: 400), () => _navigate!(route));
-    } else {
-      _pendingPayload = payload;
-    }
-  }
-
-  // Format: call:CHANNEL|CALLER_NAME|IS_VIDEO
-  void _handleCallPayload(String payload) {
-    final rest       = payload.substring('call:'.length);
-    final parts      = rest.split('|');
-    final channel    = parts.isNotEmpty ? parts[0] : '';
-    final callerName = parts.length > 1 ? parts[1] : 'مكالمة';
-    final isVideo    = parts.length > 2 && parts[2] == '1';
-    final extra = <String, dynamic>{
-      'channel':    channel,
-      'callerName': callerName,
-      'isVideo':    isVideo,
-    };
-    if (_navigate != null) {
-      Future.delayed(const Duration(milliseconds: 400),
-          () => _navigate!('/incoming-call', extra));
     } else {
       _pendingPayload = payload;
     }
@@ -148,18 +121,10 @@ class NotificationService {
   static String? buildPayloadFromData(Map<String, dynamic> data) {
     final type = data['type'] as String? ?? '';
 
-    // Incoming call — encode channel + caller name + video flag
-    if (type == 'incoming_call') {
-      final channel    = data['channel']     as String? ?? '';
-      final callerName = data['caller_name'] as String? ?? 'مكالمة';
-      final isVideo    = data['is_video'] == 'true' || data['is_video'] == true;
-      return 'call:$channel|$callerName|${isVideo ? '1' : '0'}';
-    }
-
     final aptId  = data['appointment_id'];
-    if (aptId != null) return 'appointment:$aptId';
+    if (aptId != null && '$aptId'.isNotEmpty) return 'appointment:$aptId';
     final convId = data['conversation_id'];
-    if (convId != null) return 'message:$convId';
+    if (convId != null && '$convId'.isNotEmpty) return 'message:$convId';
     final goalId = data['goal_id'];
     if (goalId != null) return 'goal:$goalId';
     final progId = data['program_id'];
@@ -218,17 +183,9 @@ class NotificationService {
               ? dataField.cast<String, dynamic>()
               : <String, dynamic>{};
 
+          // Old call rows: the ring already happened (or was missed) live.
+          if (dataMap['type'] == 'incoming_call') continue;
           final payload = buildPayloadFromData(dataMap);
-          final type = dataMap['type'] as String? ?? '';
-
-          if (type == 'incoming_call' && payload != null) {
-            await showIncomingCall(
-              title: n['title'] as String? ?? 'مكالمة واردة',
-              body:  n['body']  as String? ?? '',
-              payload: payload,
-            );
-            continue;
-          }
 
           await _showNotification(
             id:      notifId,
@@ -256,20 +213,6 @@ class NotificationService {
       title,
       body,
       LocalNotificationHelper.generalDetails(),
-      payload: payload,
-    );
-  }
-
-  Future<void> showIncomingCall({
-    required String title,
-    required String body,
-    required String payload,
-  }) async {
-    await _plugin.show(
-      payload.hashCode,
-      title,
-      body,
-      LocalNotificationHelper.callDetails,
       payload: payload,
     );
   }

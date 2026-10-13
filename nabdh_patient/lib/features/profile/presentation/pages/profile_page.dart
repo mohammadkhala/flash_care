@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/call_setup_sheet.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -252,6 +253,12 @@ class _ProfilePageState extends State<ProfilePage> {
               label: S.language,
               color: const Color(0xFF0288D1),
               onTap: () => showLanguagePicker(context),
+            ),
+            _LinkTile(
+              icon: Icons.ring_volume_outlined,
+              label: 'إعدادات المكالمات',
+              color: AppColors.success,
+              onTap: () => CallSetupSheet.show(context),
             ),
             _LinkTile(
               icon: Icons.star_outline_rounded,

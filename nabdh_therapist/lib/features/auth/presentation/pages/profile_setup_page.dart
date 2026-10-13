@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/nabd_logo.dart';
 import '../../../../core/widgets/tip_row.dart';
 
 class ProfileSetupPage extends StatefulWidget {
@@ -268,11 +269,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       color: AppColors.surface,
       child: Row(
         children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
-            child: const Center(child: Text('نبض', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800))),
-          ),
+          const NabdLogo(size: 32),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

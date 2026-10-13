@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/call_service.dart';
 import 'core/services/locale_service.dart';
 import 'core/services/app_settings_service.dart';
 
@@ -28,6 +29,12 @@ void main() async {
 
   await NotificationService.instance.init();
 
+  // Ringing call screen: accept / decline events
+  await CallService.instance.init();
+  if (CallService.instance.hasPendingAccept) {
+    NotificationService.hadPendingAtStartup = true;
+  }
+
   // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
   unawaited(AppSettingsService.instance.init());
 
@@ -39,6 +46,9 @@ void main() async {
   // Wire up notification navigation AFTER first frame so GoRouter is mounted.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     NotificationService.instance.setNavigator(
+      (route, [extra]) => appRouter.push(route, extra: extra),
+    );
+    CallService.instance.setNavigator(
       (route, [extra]) => appRouter.push(route, extra: extra),
     );
   });

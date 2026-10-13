@@ -45,6 +45,34 @@ class FcmService
         return $user->isTherapist() ? 'nabdh_therapist_channel' : 'nabdh_patient_channel';
     }
 
+    /**
+     * Data-only, high-priority push for call signalling (incoming_call / call_ended).
+     * Without a `notification` block Android hands the message to the app's
+     * background handler even when the app is killed, so it can show the
+     * ringing call screen. Not stored in DB — a ring is only meaningful live.
+     */
+    public function sendCall(User $user, array $data, int $ttlSeconds = 45): void
+    {
+        if (!$user->fcm_token) return;
+
+        $this->postMessage([
+            'token'   => $user->fcm_token,
+            'data'    => array_map('strval', $data),
+            'android' => [
+                'priority' => 'high',
+                'ttl'      => "{$ttlSeconds}s",
+            ],
+            'apns' => [
+                'headers' => [
+                    'apns-priority'   => '10',
+                    'apns-push-type'  => 'background',
+                    'apns-expiration' => (string) (time() + $ttlSeconds),
+                ],
+                'payload' => ['aps' => ['content-available' => 1]],
+            ],
+        ]);
+    }
+
     public function sendToMany(array $userIds, string $title, string $body, array $data = [], string $type = 'general'): void
     {
         $users = User::whereIn('id', $userIds)->get();
@@ -72,6 +100,35 @@ class FcmService
         array $data,
         string $channelId = 'nabdh_patient_channel',
     ): void {
+        $this->postMessage([
+            'token'        => $token,
+            'notification' => ['title' => $title, 'body' => $body],
+            'data'         => array_map('strval', $data),
+            'android'      => [
+                'priority'     => 'high',
+                'notification' => [
+                    'sound'                   => 'default',
+                    'channel_id'              => $channelId,
+                    'notification_priority'   => 'PRIORITY_HIGH',
+                    'default_vibrate_timings' => true,
+                    'click_action'            => 'FLUTTER_NOTIFICATION_CLICK',
+                ],
+            ],
+            'apns' => [
+                'headers' => [
+                    'apns-priority'  => '10',
+                    'apns-push-type' => 'alert',
+                ],
+                'payload' => ['aps' => [
+                    'sound'              => 'default',
+                    'interruption-level' => 'active',
+                ]],
+            ],
+        ]);
+    }
+
+    private function postMessage(array $message): void
+    {
         $projectId = config('services.firebase.project_id');
         $credPath  = config('services.firebase.credentials');
 
@@ -83,34 +140,6 @@ class FcmService
         try {
             $accessToken = $this->getAccessToken($credPath);
 
-            $message = [
-                'message' => [
-                    'token'        => $token,
-                    'notification' => ['title' => $title, 'body' => $body],
-                    'data'         => array_map('strval', $data),
-                    'android'      => [
-                        'priority'     => 'high',
-                        'notification' => [
-                            'sound'                   => 'default',
-                            'channel_id'              => $channelId,
-                            'notification_priority'   => 'PRIORITY_HIGH',
-                            'default_vibrate_timings' => true,
-                            'click_action'            => 'FLUTTER_NOTIFICATION_CLICK',
-                        ],
-                    ],
-                    'apns' => [
-                        'headers' => [
-                            'apns-priority'  => '10',
-                            'apns-push-type' => 'alert',
-                        ],
-                        'payload' => ['aps' => [
-                            'sound'              => 'default',
-                            'interruption-level' => 'active',
-                        ]],
-                    ],
-                ],
-            ];
-
             $client = new \GuzzleHttp\Client(['timeout' => 10]);
             $client->post(
                 "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send",
@@ -119,7 +148,7 @@ class FcmService
                         'Authorization' => 'Bearer ' . $accessToken,
                         'Content-Type'  => 'application/json',
                     ],
-                    'json' => $message,
+                    'json' => ['message' => $message],
                 ]
             );
         } catch (\Exception $e) {

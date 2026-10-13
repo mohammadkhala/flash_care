@@ -15,6 +15,7 @@ import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/call_service.dart';
 import 'core/services/locale_service.dart';
 import 'core/services/app_settings_service.dart';
 
@@ -85,6 +86,7 @@ Future<void> _backgroundPoll() async {
       final dataMap   = dataField is Map
           ? dataField.cast<String, dynamic>()
           : <String, dynamic>{};
+      if (dataMap['type'] == 'incoming_call') continue;
 
       final payload = NotificationService.buildPayloadFromData(dataMap);
 
@@ -130,6 +132,12 @@ void main() async {
   // Initialise local notifications + polling
   await NotificationService.instance.init();
 
+  // Ringing call screen: accept / decline events
+  await CallService.instance.init();
+  if (CallService.instance.hasPendingAccept) {
+    NotificationService.hadPendingAtStartup = true;
+  }
+
   // Fetch app settings (WhatsApp, announcements, etc.) — non-blocking
   unawaited(AppSettingsService.instance.init());
 
@@ -155,6 +163,9 @@ void main() async {
   // NotificationService and will be consumed once setNavigator is called.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     NotificationService.instance.setNavigator(
+      (route, [extra]) => appRouter.push(route, extra: extra),
+    );
+    CallService.instance.setNavigator(
       (route, [extra]) => appRouter.push(route, extra: extra),
     );
   });

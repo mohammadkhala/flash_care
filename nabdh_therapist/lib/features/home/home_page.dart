@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/call_setup_sheet.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/s.dart';
+import '../../core/widgets/nabd_logo.dart';
 import '../../core/widgets/whatsapp_fab.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,7 +21,13 @@ class _HomePageState extends State<HomePage> {
   bool _loading = true;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) CallSetupSheet.maybeShow(context);
+    });
+  }
 
   Future<void> _load() async {
     try {
@@ -52,12 +60,7 @@ class _HomePageState extends State<HomePage> {
           floating: true,
           backgroundColor: AppColors.surface,
           title: Row(children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(10)),
-              child: const Center(child: Text('نبض',
-                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800, fontFamily: 'Cairo'))),
-            ),
+            const NabdLogo(size: 28),
             const SizedBox(width: 10),
             Text(_loading ? 'مرحباً' : 'مرحباً، $_name',
                 style: const TextStyle(fontSize: 15, fontFamily: 'Cairo')),
