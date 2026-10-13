@@ -1,6 +1,6 @@
 # توثيق مشروع نبض (NABD / Flash Care)
 
-آخر تحديث: **2026-08-17** — السيرفر والكود المحلي على `master` @ `cf00c30`.
+آخر تحديث: **2026-10-13** — الكود على `master` @ `420862c`، السيرفر على `a18980c` (لا فرق في الباك إند).
 
 ## هيكل المشروع
 
@@ -40,17 +40,20 @@ git pull origin master
 | [CHANGELOG.md](./CHANGELOG.md) | تقرير آخر سحب + سجل الإصلاحات |
 | [SERVER_DEPLOY.md](./SERVER_DEPLOY.md) | أوامر النشر على السيرفر |
 | [MOBILE_BUILD.md](./MOBILE_BUILD.md) | بناء APK وتشغيل المحاكي |
-| [ENV_AND_NOTIFICATIONS.md](./ENV_AND_NOTIFICATIONS.md) | `.env` و Firebase و FCM |
+| [ENV_AND_NOTIFICATIONS.md](./ENV_AND_NOTIFICATIONS.md) | `.env` و Firebase و FCM و آلية المكالمات |
+| [CALLS_TESTING.md](./CALLS_TESTING.md) | خطة تجربة المكالمات + تشخيص المشاكل |
 
 ## الحالة الحالية
 
 | البند | الحالة |
 |--------|--------|
-| كود محلي | `master` @ `cf00c30` ✅ |
-| سيرفر الإنتاج | نُشر 2026-08-17 ✅ |
+| كود محلي | `master` @ `420862c` ✅ |
+| سيرفر الإنتاج | نُشر 2026-10-13 (`a18980c`) ✅ |
 | Firebase | `nabd-3e72e` ✅ |
-| Migration الأخيرة | `add_media_name_to_program_exercises` DONE ✅ |
-| APK على سطح المكتب | قديم (2026-06-09) — يحتاج إعادة بناء |
+| Agora | App ID يطابق التطبيقين، توليد التوكن يعمل ✅ |
+| Migration الأخيرة | `add_peer_therapist_to_conversations` DONE ✅ |
+| APK على سطح المكتب | 2026-10-13 16:33 — أُرسلت لصاحب التطبيق ✅ |
+| **المكالمات (رنين + Agora)** | ⏳ **في انتظار تجربة المستخدم** — [CALLS_TESTING.md](./CALLS_TESTING.md) |
 
 ## تسجيل دخول الأدمن
 
@@ -62,4 +65,4 @@ git pull origin master
 
 1. على السيرفر: `fetch` + `checkout nabdh_backend` + `rsync` ثم `migrate` + `cache`. لا تعتمد على `git pull` وحده.
 2. `FIREBASE_PROJECT_ID` يجب أن يكون `nabd-3e72e` (بدون حرف **h**). القيمة `nabdh-3e72e` تسبب 403.
-3. ميزات أغسطس (خريطة، مستندات، إشعارات صوتية، أكواد دول) تحتاج APK جديد على الجوال.
+3. بعد تثبيت أي APK جديد: خروج ثم دخول لتحديث توكن الإشعارات.
