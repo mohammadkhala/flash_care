@@ -26,9 +26,7 @@ class AuthController extends Controller
         ]);
 
         // Block login-mode users from OTP (they should use login endpoint)
-        $existing = User::where('phone', $request->phone)
-            ->where('phone_country_code', $request->phone_country_code)
-            ->first();
+        $existing = User::wherePhone($request->phone_country_code, $request->phone)->first();
 
         if ($existing && $existing->phone_verified_at && $existing->password) {
             return response()->json([
@@ -37,10 +35,11 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::firstOrCreate(
-            ['phone' => $request->phone, 'phone_country_code' => $request->phone_country_code],
-            ['type' => $request->type]
-        );
+        $user = $existing ?? User::create([
+            'phone'              => User::normalizePhone($request->phone),
+            'phone_country_code' => $request->phone_country_code,
+            'type'               => $request->type,
+        ]);
 
         if ($user->type !== $request->type) {
             return response()->json(['message' => 'هذا الرقم مسجل بنوع حساب مختلف'], 422);
@@ -68,11 +67,11 @@ class AuthController extends Controller
             'fcm_token'          => 'nullable|string',
         ]);
 
-        $user = User::where('phone', $request->phone)
-            ->where('phone_country_code', $request->phone_country_code)
-            ->first();
+        $user = User::wherePhone($request->phone_country_code, $request->phone)
+            ->get()
+            ->first(fn (User $u) => $u->isOtpValid($request->otp));
 
-        if (!$user || !$user->isOtpValid($request->otp)) {
+        if (!$user) {
             throw ValidationException::withMessages(['otp' => 'رمز التحقق غير صحيح أو منتهي الصلاحية']);
         }
 
@@ -124,8 +123,7 @@ class AuthController extends Controller
             'type'               => 'required|in:therapist,patient',
         ]);
 
-        $user = User::where('phone', $request->phone)
-            ->where('phone_country_code', $request->phone_country_code)
+        $user = User::wherePhone($request->phone_country_code, $request->phone)
             ->where('type', $request->type)
             ->first();
 
@@ -153,12 +151,13 @@ class AuthController extends Controller
             'fcm_token'          => 'nullable|string',
         ]);
 
-        $user = User::where('phone', $request->phone)
-            ->where('phone_country_code', $request->phone_country_code)
+        $user = User::wherePhone($request->phone_country_code, $request->phone)
             ->where('type', $request->type)
-            ->first();
+            ->whereNotNull('password')
+            ->get()
+            ->first(fn (User $u) => Hash::check($request->password, $u->password));
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user) {
             throw ValidationException::withMessages([
                 'phone' => 'رقم الهاتف أو كلمة المرور غير صحيحة',
             ]);

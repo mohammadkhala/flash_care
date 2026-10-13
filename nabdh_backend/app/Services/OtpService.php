@@ -24,12 +24,28 @@ class OtpService
             'otp_expires_at' => now()->addMinutes(10),
         ]);
 
-        return $this->sendWhatsApp($user->phone_country_code . $user->phone, $otp);
+        $local = User::normalizePhone($user->phone);
+        if ($this->sendWhatsApp($user->phone_country_code . $local, $otp)) {
+            return true;
+        }
+
+        // Palestinian numbers are often registered on WhatsApp under the other
+        // code (+970 ↔ +972). WaSender allows one message per 5 s.
+        if ($this->notOnWhatsApp && in_array($user->phone_country_code, User::SHARED_PLAN_CODES, true)) {
+            $other = $user->phone_country_code === '+970' ? '+972' : '+970';
+            sleep(5);
+            return $this->sendWhatsApp($other . $local, $otp);
+        }
+
+        return false;
     }
+
+    private bool $notOnWhatsApp = false;
 
     private function sendWhatsApp(string $phone, string $otp): bool
     {
         $this->lastError = null;
+        $this->notOnWhatsApp = false;
 
         // E.164 format
         $phone = ltrim($phone, '+');
@@ -67,7 +83,9 @@ class OtpService
             }
 
             $this->lastError = "HTTP {$response->status()}: " . $response->body();
-            Log::error('[OTP] WaSender failed: ' . $this->lastError);
+            $this->notOnWhatsApp = $response->status() === 422
+                && str_contains((string) $response->json('message'), 'does not exist on WhatsApp');
+            Log::error("[OTP] WaSender failed ({$phone}): " . $this->lastError);
             return false;
 
         } catch (\Exception $e) {

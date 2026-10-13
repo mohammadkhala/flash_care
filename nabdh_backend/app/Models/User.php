@@ -46,6 +46,34 @@ class User extends Authenticatable
     public function isPatient(): bool { return $this->type === 'patient'; }
     public function isAdmin(): bool { return $this->type === 'admin'; }
 
+    /** Palestinian mobiles share one numbering plan: +970 59… is the same line as +972 59…. */
+    public const SHARED_PLAN_CODES = ['+970', '+972'];
+
+    /** Digits only, without the local trunk "0" (059… → 59…). */
+    public static function normalizePhone(string $phone): string
+    {
+        return ltrim(preg_replace('/\D+/', '', $phone), '0');
+    }
+
+    /**
+     * Match a phone the way users type it: with or without the leading 0, and
+     * +970/+972 as the same number. Verified accounts with a password first,
+     * so older duplicates (saved with a leading 0) don't win.
+     */
+    public function scopeWherePhone($query, string $countryCode, string $phone)
+    {
+        $local = self::normalizePhone($phone);
+        $codes = in_array($countryCode, self::SHARED_PLAN_CODES, true)
+            ? self::SHARED_PLAN_CODES
+            : [$countryCode];
+
+        return $query->whereIn('phone', [$local, '0' . $local])
+            ->whereIn('phone_country_code', $codes)
+            ->orderByRaw('password IS NULL')
+            ->orderByRaw('phone_verified_at IS NULL')
+            ->orderBy('id');
+    }
+
     public function isOtpValid(string $otp): bool
     {
         return $this->otp === $otp && $this->otp_expires_at?->isFuture();
