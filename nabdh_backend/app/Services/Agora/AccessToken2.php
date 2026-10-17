@@ -5,12 +5,13 @@ namespace App\Services\Agora;
 /**
  * Agora AccessToken2 builder — token version 007.
  *
- * Matches the official Agora PHP SDK exactly:
- *   - All integers packed as little-endian (V = uint32-LE, v = uint16-LE)
- *   - Strings packed as uint16-LE length prefix + raw bytes
- *   - Compressed with raw DEFLATE (zlib_encode ZLIB_ENCODING_DEFLATE)
- *   - expire = duration in seconds (relative, NOT absolute timestamp)
- *   - Signing input = packString(appId) + packUint32(issueTs) + packUint32(salt)
+ * Byte layout follows the official AgoraIO/Tools PHP AccessToken2:
+ *   signing key = HMAC(HMAC(appCert, key=uint32(issueTs)), key=uint32(salt))
+ *   body        = str(appId) . uint32(issueTs) . uint32(expire) . uint32(salt)
+ *                 . uint16(count) . services (sorted by type)
+ *   token       = "007" . base64(deflate(str(HMAC(body, signingKey)) . body))
+ * Integers are little-endian; str() = uint16 length + bytes.
+ * `expire` and privilege expiries are seconds relative to issueTs.
  */
 class AccessToken2
 {
@@ -18,7 +19,7 @@ class AccessToken2
 
     private string $appId;
     private string $appCert;
-    private int    $expire;   // duration in seconds (relative)
+    private int    $expire;
     private int    $issueTs;
     private int    $salt;
     private array  $services = [];
@@ -28,7 +29,7 @@ class AccessToken2
         $this->appId   = $appId;
         $this->appCert = $appCert;
         $this->issueTs = time();
-        $this->expire  = $expireSeconds;           // relative duration (e.g. 3600)
+        $this->expire  = $expireSeconds;
         $this->salt    = random_int(1, 99_999_999);
     }
 
@@ -39,44 +40,32 @@ class AccessToken2
 
     public function build(): string
     {
-        $msg      = $this->buildMsg();
-        $sign     = $this->getSign();
-        $payload  = $sign . $msg;
-
-        // Raw DEFLATE — matches zlib_encode($payload, ZLIB_ENCODING_DEFLATE) in the official SDK
-        $compressed = zlib_encode($payload, ZLIB_ENCODING_DEFLATE);
-
-        return self::VERSION . base64_encode($compressed);
-    }
-
-    // ── Private helpers ──────────────────────────────────────────────────────
-
-    private function buildMsg(): string
-    {
-        $msg  = pack('V', $this->issueTs);            // uint32 LE
-        $msg .= pack('V', $this->expire);             // uint32 LE (duration in seconds)
-        $msg .= pack('V', $this->salt);               // uint32 LE
-
         ksort($this->services, SORT_NUMERIC);
-        $msg .= pack('v', count($this->services));    // uint16 LE
+
+        $body = self::packString($this->appId)
+            . pack('V', $this->issueTs)
+            . pack('V', $this->expire)
+            . pack('V', $this->salt)
+            . pack('v', count($this->services));
         foreach ($this->services as $svc) {
-            $msg .= $svc->pack();
+            $body .= $svc->pack();
         }
-        return $msg;
+
+        $signature = hash_hmac('sha256', $body, $this->signingKey(), true);
+
+        return self::VERSION . base64_encode(
+            zlib_encode(self::packString($signature) . $body, ZLIB_ENCODING_DEFLATE)
+        );
     }
 
-    /**
-     * Signing key  = HMAC-SHA256( packString(appId) + packUint32(issueTs) + packUint32(salt) , appCert )
-     * Signature    = HMAC-SHA256( buildMsg() , signingKey )
-     */
-    private function getSign(): string
+    private function signingKey(): string
     {
-        // packString = uint16-LE length + raw bytes
-        $input  = pack('v', strlen($this->appId)) . $this->appId;
-        $input .= pack('V', $this->issueTs);
-        $input .= pack('V', $this->salt);
+        $key = hash_hmac('sha256', $this->appCert, pack('V', $this->issueTs), true);
+        return hash_hmac('sha256', $key, pack('V', $this->salt), true);
+    }
 
-        $signingKey = hash_hmac('sha256', $input, $this->appCert, true);
-        return hash_hmac('sha256', $this->buildMsg(), $signingKey, true);
+    public static function packString(string $value): string
+    {
+        return pack('v', strlen($value)) . $value;
     }
 }

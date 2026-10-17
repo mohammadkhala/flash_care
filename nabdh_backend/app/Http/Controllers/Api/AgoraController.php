@@ -52,11 +52,10 @@ class AgoraController extends Controller
         $token = new AccessToken2($appId, $appCert, $expiresSec);
 
         $svc = new ServiceRtc($channel, $uid);
-        $svc->addPrivilege(ServiceRtc::PRIV_JOIN_CHANNEL,          time() + $expiresSec);
-        $svc->addPrivilege(ServiceRtc::PRIV_PUBLISH_AUDIO_STREAM,  time() + $expiresSec);
-        $svc->addPrivilege(ServiceRtc::PRIV_PUBLISH_VIDEO_STREAM,  time() + $expiresSec);
-        $svc->addPrivilege(ServiceRtc::PRIV_SUBSCRIBE_AUDIO_STREAM, time() + $expiresSec);
-        $svc->addPrivilege(ServiceRtc::PRIV_SUBSCRIBE_VIDEO_STREAM, time() + $expiresSec);
+        $svc->addPrivilege(ServiceRtc::PRIV_JOIN_CHANNEL,         $expiresSec);
+        $svc->addPrivilege(ServiceRtc::PRIV_PUBLISH_AUDIO_STREAM, $expiresSec);
+        $svc->addPrivilege(ServiceRtc::PRIV_PUBLISH_VIDEO_STREAM, $expiresSec);
+        $svc->addPrivilege(ServiceRtc::PRIV_PUBLISH_DATA_STREAM,  $expiresSec);
         $token->addService($svc);
 
         return response()->json([
