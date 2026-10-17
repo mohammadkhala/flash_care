@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Specialization;
 use App\Models\Therapist;
+use App\Models\TherapistDocument;
 use App\Services\FcmService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -197,11 +198,19 @@ class TherapistController extends Controller
         return back()->with('success', 'تم تحديث الحالة');
     }
 
+    /** Verification document from private storage — admin session only. */
+    public function document(Therapist $therapist, TherapistDocument $document)
+    {
+        abort_if($document->therapist_id !== $therapist->id, 404);
+        return $document->inlineResponse();
+    }
+
     public function destroy(Therapist $therapist)
     {
         $therapist->educations()->delete();
         $therapist->certifications()->delete();
         $therapist->languages()->delete();
+        $therapist->documents->each->deleteFile();
         $therapist->documents()->delete();
         $therapist->schedules()->delete();
         $therapist->unavailabilities()->delete();

@@ -18,8 +18,12 @@ class RoleMiddleware
         }
 
         if ($request->user()->type === 'therapist') {
-            // Allow profile setup routes regardless of approval status
-            $setupRoutes = ['therapist/profile/complete', 'therapist/profile/avatar', 'therapist/profile/language'];
+            // Allow profile setup + verification documents regardless of approval status
+            // (a pending therapist must be able to upload or re-upload documents).
+            $setupRoutes = [
+                'therapist/profile/complete', 'therapist/profile/avatar', 'therapist/profile/language',
+                'therapist/documents', 'therapist/documents/*',
+            ];
             $isSetupRoute = collect($setupRoutes)->contains(fn($r) => $request->is("api/$r"));
 
             if (!$isSetupRoute) {

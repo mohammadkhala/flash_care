@@ -76,17 +76,13 @@
                             $icon = match($doc->type) {
                                 'cv'          => '📋',
                                 'license'     => '📄',
+                                'id_card'     => '🪪',
                                 'certificate' => '🎓',
                                 default       => '📁',
                             };
-                            $typeLabel = match($doc->type) {
-                                'cv'          => 'السيرة الذاتية',
-                                'license'     => 'الترخيص المهني',
-                                'certificate' => 'شهادة / دبلوم',
-                                default       => 'وثيقة أخرى',
-                            };
+                            $typeLabel = $doc->type_label;
                         @endphp
-                        <a href="{{ Storage::url($doc->file_path) }}" target="_blank"
+                        <a href="{{ route('admin.therapists.document', [$therapist, $doc]) }}" target="_blank"
                            class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-[#1B5E7B]/5 transition-colors group">
                             <span class="text-2xl leading-none">{{ $icon }}</span>
                             <div class="flex-1 min-w-0">

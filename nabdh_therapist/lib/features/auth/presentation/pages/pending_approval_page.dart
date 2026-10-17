@@ -153,6 +153,21 @@ class _PendingApprovalPageState extends State<PendingApprovalPage>
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
+                  onPressed: () => context.push('/auth/documents'),
+                  icon: const Icon(Icons.folder_copy_outlined),
+                  label: const Text('وثائق التوثيق (عرض / إعادة رفع)'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
                   onPressed: () async {
                     await ApiClient.clearTokenSilent();
                     if (context.mounted) context.go('/auth');

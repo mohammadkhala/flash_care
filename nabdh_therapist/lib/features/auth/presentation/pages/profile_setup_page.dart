@@ -150,6 +150,77 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     return true;
   }
 
+  /// Uploads [docs]; returns the ones that failed with the reason shown to the user.
+  Future<List<({Map<String, dynamic> doc, String reason})>> _uploadDocuments(
+      List<Map<String, dynamic>> docs) async {
+    final failed = <({Map<String, dynamic> doc, String reason})>[];
+    for (final doc in docs) {
+      final file = doc['file'] as File;
+      try {
+        final formData = FormData.fromMap({
+          'file':  await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+          'type':  doc['type'] as String,
+          'label': doc['label'] as String,
+        });
+        await ApiClient.instance.post('/therapist/documents', data: formData);
+      } on DioException catch (e) {
+        final data = e.response?.data;
+        final status = e.response?.statusCode;
+        String reason = status == null ? 'تعذّر الاتصال بالسيرفر — تحقق من الإنترنت' : 'خطأ من السيرفر ($status)';
+        if (status == 413) reason = 'الملف كبير جداً';
+        if (data is Map) {
+          final errors = data['errors'];
+          if (errors is Map && errors.isNotEmpty && errors.values.first is List) {
+            reason = '${(errors.values.first as List).first}';
+          } else if (data['message'] is String) {
+            reason = data['message'] as String;
+          }
+        }
+        failed.add((doc: doc, reason: reason));
+      } catch (_) {
+        failed.add((doc: doc, reason: 'تعذّر قراءة الملف من الجهاز'));
+      }
+    }
+    return failed;
+  }
+
+  Future<bool?> _showUploadFailures(List<({Map<String, dynamic> doc, String reason})> failed) =>
+      showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.cloud_off_rounded, color: AppColors.warning, size: 36),
+          title: const Text('لم تُرفع بعض الوثائق'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('تم إنشاء ملفك، لكن هذه الوثائق لم تصل إلى الإدارة:'),
+            const SizedBox(height: 10),
+            ...failed.map((f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text.rich(TextSpan(children: [
+                      TextSpan(text: '${f.doc['label'] ?? f.doc['type']}\n',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(text: f.reason, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ]))),
+                  ]),
+                )),
+            const SizedBox(height: 4),
+            const Text('يمكنك أيضاً رفعها لاحقاً من «وثائق التوثيق» في صفحة انتظار الموافقة.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لاحقاً')),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('إعادة الرفع'),
+            ),
+          ],
+        ),
+      );
+
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     try {
@@ -179,36 +250,19 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       }
 
       // 4. Upload documents.
-      // The profile itself is already created by this point, so a failed
-      // document upload must not abort the whole flow — otherwise the therapist
-      // lands in a registered-but-undocumented state with no way back. Failures
-      // are collected and reported, and the documents page can retry them.
-      final failedDocs = <String>[];
-      for (final doc in _documents) {
-        final file = doc['file'] as File;
-        try {
-          final formData = FormData.fromMap({
-            'file':  await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-            'type':  doc['type'] as String,
-            'label': doc['label'] as String,
-          });
-          await ApiClient.instance.post('/therapist/documents', data: formData);
-        } catch (_) {
-          failedDocs.add(doc['label'] as String? ?? doc['type'] as String);
-        }
+      // The profile already exists, so a failed upload must not abort the flow.
+      // Failures stay on screen until the therapist retries or chooses later
+      // (the pending page links to the documents page).
+      var pending = List<Map<String, dynamic>>.from(_documents);
+      while (pending.isNotEmpty) {
+        final failed = await _uploadDocuments(pending);
+        if (failed.isEmpty || !mounted) break;
+        final retry = await _showUploadFailures(failed);
+        if (retry != true) break;
+        pending = failed.map((f) => f.doc).toList();
       }
 
       if (!mounted) return;
-      if (failedDocs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            'تم إنشاء ملفك، لكن تعذّر رفع: ${failedDocs.join('، ')}. '
-            'يمكنك رفعها من "وثائق التوثيق" في صفحة حسابك.',
-          ),
-          backgroundColor: AppColors.warning,
-          duration: const Duration(seconds: 6),
-        ));
-      }
       context.go('/auth/pending');
     } catch (e) {
       if (mounted) {

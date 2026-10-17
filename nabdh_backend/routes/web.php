@@ -40,6 +40,7 @@ Route::prefix('admin')->group(function () {
         Route::post  ('therapists/{therapist}/toggle-featured', [TherapistController::class, 'toggleFeatured'])->name('therapists.featured');
         Route::post  ('therapists/{therapist}/toggle-active',   [TherapistController::class, 'toggleActive'])  ->name('therapists.active');
         Route::delete('therapists/{therapist}',                 [TherapistController::class, 'destroy'])       ->name('therapists.destroy');
+        Route::get   ('therapists/{therapist}/documents/{document}', [TherapistController::class, 'document'])  ->name('therapists.document');
 
         // ── Patients ───────────────────────────────────────────────────────
         Route::get   ('patients',                      [PatientController::class, 'index'])       ->name('patients.index');

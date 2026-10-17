@@ -76,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('documents',             [TherapistDocumentController::class, 'index']);
         Route::post('documents',            [TherapistDocumentController::class, 'store']);
         Route::delete('documents/{document}', [TherapistDocumentController::class, 'destroy']);
+        Route::get('documents/{document}/file', [TherapistDocumentController::class, 'file']);
         Route::get('statistics', [ProfileController::class, 'statistics']);
 
         // Schedules & Clinics

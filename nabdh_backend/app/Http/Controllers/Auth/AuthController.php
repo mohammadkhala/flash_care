@@ -274,6 +274,7 @@ class AuthController extends Controller
                 $therapist->educations()->delete();
                 $therapist->certifications()->delete();
                 $therapist->languages()->delete();
+                $therapist->documents->each->deleteFile();
                 $therapist->documents()->delete();
                 $therapist->schedules()->delete();
                 $therapist->unavailabilities()->delete();

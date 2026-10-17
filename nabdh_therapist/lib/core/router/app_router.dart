@@ -52,7 +52,8 @@ final appRouter = GoRouter(
     final isSplash        = loc == '/splash';
     final isPostAuthSetup = loc == '/auth/set-password' ||
                             loc == '/auth/setup'        ||
-                            loc == '/auth/pending';
+                            loc == '/auth/pending'      ||
+                            loc == '/auth/documents';
     final isOnboarding    = loc == '/onboarding';
 
     if (isSplash || isPostAuthSetup || isOnboarding) return null;
@@ -84,6 +85,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/auth/setup',    builder: (_, __) => const ProfileSetupPage()),
     GoRoute(path: '/auth/pending',  builder: (_, __) => const PendingApprovalPage()),
+    // Verification documents while the account awaits approval (outside the main shell).
+    GoRoute(path: '/auth/documents', builder: (_, __) => const DocumentsPage()),
 
     // ── Video call (full screen, outside shell) ───────────────
     GoRoute(

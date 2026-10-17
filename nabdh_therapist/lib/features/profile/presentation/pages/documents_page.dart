@@ -3,31 +3,10 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/constants/app_constants.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
-
-/// Re-anchor a server-supplied file URL onto the API host, since the server may
-/// build it from a stale APP_URL or hand back a bare relative path.
-String _fixUrl(String? url) {
-  if (url == null || url.isEmpty) return '';
-  final base = AppConstants.baseUrl.replaceAll('/api', '');
-  if (url.startsWith('/')) return '$base$url';
-
-  final uri = Uri.tryParse(url);
-  if (uri == null || !uri.hasScheme) {
-    return '$base/${url.replaceFirst(RegExp('^/+'), '')}';
-  }
-
-  const localHosts = {'localhost', '127.0.0.1', '10.0.2.2', '0.0.0.0'};
-  final isPrivateLan = RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)')
-      .hasMatch(uri.host);
-  if (localHosts.contains(uri.host) || isPrivateLan) {
-    return '$base${uri.path}';
-  }
-  return url;
-}
 
 /// Lets a therapist manage their verification documents after registration.
 ///
@@ -148,32 +127,28 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
+  /// Documents are private on the server: download with the login token, then open.
   Future<void> _open(Map<String, dynamic> doc) async {
-    final raw = (doc['file_url'] ?? doc['url'] ?? doc['file_path']) as String?;
-    if (raw == null || raw.isEmpty) {
-      _snack('لا يوجد رابط لهذه الوثيقة', error: true);
-      return;
-    }
-    var url = _fixUrl(raw);
-    // A bare storage path needs the public prefix before it resolves.
-    if (!url.contains('/storage/') && !raw.startsWith('http')) {
-      final base = AppConstants.baseUrl.replaceAll('/api', '');
-      url = '$base/storage/${raw.replaceFirst(RegExp('^/+'), '')}';
-    }
-
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      _snack('رابط الوثيقة غير صالح', error: true);
-      return;
-    }
-    for (final mode in [LaunchMode.externalApplication, LaunchMode.platformDefault]) {
-      try {
-        if (await launchUrl(uri, mode: mode)) return;
-      } catch (_) {
-        // Try the next mode.
+    final id = doc['id'];
+    if (id == null) return;
+    try {
+      final res = await ApiClient.instance.get<List<int>>(
+        '/therapist/documents/$id/file',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final dir = await getTemporaryDirectory();
+      final name = (doc['file_name'] as String?)?.replaceAll(RegExp(r'[^\w.\-]+'), '_') ?? 'document-$id';
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(res.data!, flush: true);
+      final result = await OpenFile.open(file.path);
+      if (result.type != ResultType.done) {
+        _snack('لا يوجد تطبيق يستطيع فتح هذه الوثيقة', error: true);
       }
+    } on DioException catch (e) {
+      _snack(e.response?.statusCode == 404 ? 'الملف غير موجود على السيرفر' : 'تعذّر تحميل الوثيقة', error: true);
+    } catch (_) {
+      _snack('تعذّر فتح الوثيقة', error: true);
     }
-    _snack('لا يوجد تطبيق يستطيع فتح هذه الوثيقة', error: true);
   }
 
   void _snack(String msg, {bool error = false}) {

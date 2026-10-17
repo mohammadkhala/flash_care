@@ -39,22 +39,37 @@ class DocumentController extends Controller
         $therapist = $r->user()->therapist;
 
         $uploaded = $r->file('file');
-        $path     = $uploaded->store("therapist_docs/{$therapist->id}", 'public');
+        $path     = $uploaded->store("therapist_docs/{$therapist->id}", 'local');
+        abort_if($path === false, 500, 'تعذّر حفظ الملف على السيرفر، حاول مجدداً');
         $sizeKb   = $uploaded->getSize();
         $sizeFmt  = $sizeKb < 1024 * 1024
             ? round($sizeKb / 1024, 1) . ' KB'
             : round($sizeKb / (1024 * 1024), 1) . ' MB';
 
-        $doc = TherapistDocument::create([
-            'therapist_id' => $therapist->id,
-            'type'         => $r->type,
-            'file_path'    => $path,
-            'file_name'    => $uploaded->getClientOriginalName(),
-            'file_size'    => $sizeFmt,
-            'label'        => $r->label ?? TherapistDocument::$typeLabels[$r->type] ?? $r->type,
-        ]);
+        try {
+            $doc = TherapistDocument::create([
+                'therapist_id' => $therapist->id,
+                'type'         => $r->type,
+                'file_path'    => $path,
+                'file_name'    => $uploaded->getClientOriginalName(),
+                'file_size'    => $sizeFmt,
+                'label'        => $r->label ?? TherapistDocument::$typeLabels[$r->type] ?? $r->type,
+            ]);
+        } catch (\Throwable $e) {
+            // Never leave an uploaded file without its record.
+            Storage::disk('local')->delete($path);
+            report($e);
+            return response()->json(['message' => 'تعذّر حفظ الوثيقة، حاول مجدداً'], 500);
+        }
 
         return response()->json(['document' => $doc], 201);
+    }
+
+    /** GET /therapist/documents/{document}/file — the owner's own file (private storage). */
+    public function file(Request $r, TherapistDocument $document)
+    {
+        abort_if($document->therapist_id !== $r->user()->therapist?->id, 403);
+        return $document->inlineResponse();
     }
 
     /**
@@ -89,7 +104,7 @@ class DocumentController extends Controller
             abort(403);
         }
 
-        Storage::disk('public')->delete($document->file_path);
+        $document->deleteFile();
         $document->delete();
 
         return response()->json(['message' => 'تم الحذف']);
