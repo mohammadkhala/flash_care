@@ -375,7 +375,8 @@ class _FinancePageState extends State<FinancePage> with SingleTickerProviderStat
   // ── Expenses tab ───────────────────────────────────────────
 
   Widget _expensesTab() {
-    final byCat = (_summary['expenses_by_category'] as Map?) ?? {};
+    final rawByCat = _summary['expenses_by_category'];
+    final byCat = rawByCat is Map ? rawByCat : const {};
     final net = jsonDouble(_summary['net']);
     return _list([
       Row(children: [

@@ -81,7 +81,8 @@ class FinanceController extends Controller
             'expenses'             => round($expenses, 2),
             'net'                  => round($paid - $expenses, 2),
             'clients_count'        => FinanceClient::where('therapist_id', $tid)->count(),
-            'expenses_by_category' => $byCategory,
+            // Always a JSON object (an empty collection would serialize as []).
+            'expenses_by_category' => (object) $byCategory->all(),
         ]);
     }
 
