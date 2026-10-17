@@ -243,6 +243,12 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () => context.push('/documents'),
             ),
             _LinkTile(
+              icon: Icons.receipt_long_outlined,
+              label: 'فواتيري',
+              color: AppColors.success,
+              onTap: () => context.push('/invoices'),
+            ),
+            _LinkTile(
               icon: Icons.notifications_outlined,
               label: S.notifications,
               color: AppColors.accent,

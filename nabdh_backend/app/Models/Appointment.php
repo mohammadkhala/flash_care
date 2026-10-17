@@ -8,7 +8,7 @@ class Appointment extends Model
 {
     protected $fillable = [
         'therapist_id', 'patient_id', 'clinic_id', 'scheduled_at',
-        'duration', 'type', 'status', 'cancellation_reason',
+        'duration', 'price', 'type', 'status', 'cancellation_reason',
         'patient_notes', 'agora_channel',
         'is_for_other', 'other_name', 'other_age', 'other_relation',
     ];
@@ -24,6 +24,7 @@ class Appointment extends Model
     public function sessionNote() { return $this->hasOne(SessionNote::class); }
     public function review() { return $this->hasOne(Review::class); }
     public function prescriptions() { return $this->hasMany(Prescription::class); }
+    public function invoice() { return $this->hasOne(Invoice::class); }
 
     public function isPending(): bool { return $this->status === 'pending'; }
     public function isConfirmed(): bool { return $this->status === 'confirmed'; }

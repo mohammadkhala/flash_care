@@ -6,6 +6,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../calls/presentation/pages/agora_call_page.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
+import '../../../finance/finance_forms.dart';
+import '../../../finance/finance_utils.dart';
 
 class AppointmentDetailPage extends StatefulWidget {
   final int id;
@@ -16,7 +18,7 @@ class AppointmentDetailPage extends StatefulWidget {
 
 class _State extends State<AppointmentDetailPage> {
   Map? _apt;
-  bool _loading = true, _saving = false;
+  bool _loading = true, _saving = false, _billing = false;
   List<Map<String, dynamic>> _docs = [];
   bool _docsLoading = false;
   final _s = TextEditingController();
@@ -102,6 +104,57 @@ class _State extends State<AppointmentDetailPage> {
     } finally { if (mounted) setState(() => _saving = false); }
   }
 
+  Widget _invoiceButton(Map? patient, String type) {
+    final inv = _apt!['invoice'] as Map?;
+    final label = inv != null
+        ? 'فاتورة الجلسة INV-${'${inv['number']}'.padLeft(4, '0')} — الحساب المالي'
+        : 'إنشاء فاتورة للجلسة';
+    return OutlinedButton.icon(
+      onPressed: _billing
+          ? null
+          : () async {
+              if (inv != null) {
+                await context.push('/finance/client/${inv['client_id']}');
+                _load();
+              } else {
+                await _createInvoice(patient, type);
+              }
+            },
+      icon: Icon(inv != null ? Icons.receipt_long : Icons.request_quote_outlined),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.success,
+        side: const BorderSide(color: AppColors.success),
+        minimumSize: const Size(double.infinity, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
+  Future<void> _createInvoice(Map? patient, String type) async {
+    final patientId = jsonInt(patient?['id']);
+    if (patientId == 0) return;
+    setState(() => _billing = true);
+    try {
+      final res = await ApiClient.instance.post('/therapist/finance/clients', data: {'patient_id': patientId});
+      if (!mounted) return;
+      final saved = await showInvoiceForm(
+        context,
+        client: res.data as Map,
+        appointmentId: widget.id,
+        amount: _apt!['price'] != null ? jsonDouble(_apt!['price']) : null,
+        description: type == 'online' ? 'جلسة أونلاين' : 'جلسة حضورية',
+      );
+      if (saved) _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiError(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _billing = false);
+    }
+  }
+
   Future<void> _startSession() async {
     final patientName = (_apt?['patient'] as Map?)?['full_name'] as String? ?? 'المريض';
     if (!mounted) return;
@@ -181,6 +234,11 @@ class _State extends State<AppointmentDetailPage> {
           ),
         ),
         const SizedBox(height: 12),
+
+        if (status == 'confirmed' || status == 'completed') ...[
+          _invoiceButton(patient, type),
+          const SizedBox(height: 12),
+        ],
 
         // ── Patient Medical Documents ─────────────────────────────────
         _PatientDocsSection(

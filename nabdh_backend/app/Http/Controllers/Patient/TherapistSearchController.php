@@ -331,6 +331,9 @@ class TherapistSearchController extends Controller
             'type'          => $request->type,
             'patient_notes' => $request->patient_notes,
             'duration'      => $therapist->session_duration,
+            'price'         => $request->type === 'online'
+                ? $therapist->online_session_price
+                : $therapist->in_person_session_price,
             'is_for_other'  => $request->boolean('is_for_other', false),
             'other_name'    => $request->other_name,
             'other_age'     => $request->other_age,

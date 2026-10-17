@@ -113,6 +113,7 @@ class NotificationService {
       return '/programs/${payload.substring('program:'.length)}';
     }
     if (payload == 'reels') return '/reels';
+    if (payload == 'invoices') return '/invoices';
     return '/notifications';
   }
 
@@ -130,6 +131,7 @@ class NotificationService {
     final progId = data['program_id'];
     if (progId != null) return 'program:$progId';
     if (type == 'reel_approved' || type == 'new_reel') return 'reels';
+    if (type == 'new_invoice' || type == 'new_payment') return 'invoices';
     return null;
   }
 

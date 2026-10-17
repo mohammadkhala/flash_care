@@ -8,6 +8,7 @@ use App\Http\Controllers\Patient\TherapistSearchController;
 use App\Http\Controllers\Shared\CallController;
 use App\Http\Controllers\Shared\MessageController;
 use App\Http\Controllers\Therapist\AppointmentController as TherapistAppointmentController;
+use App\Http\Controllers\Therapist\FinanceController;
 use App\Http\Controllers\Therapist\HomeProgramController;
 use App\Http\Controllers\Therapist\ProfileController;
 use App\Http\Controllers\Therapist\ReelController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Therapist\ScheduleController;
 use App\Http\Controllers\Patient\AppointmentController as PatientAppointmentController;
 use App\Http\Controllers\Patient\HomeProgramController as PatientHomeProgramController;
 use App\Http\Controllers\Patient\DocumentController as PatientDocumentController;
+use App\Http\Controllers\Patient\InvoiceController as PatientInvoiceController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Public (no auth) ─────────────────────────────────────────
@@ -140,6 +142,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'update']);
         Route::post('goals/{goal}/progress', [\App\Http\Controllers\Therapist\GoalController::class, 'updateProgress']);
         Route::delete('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'destroy']);
+
+        // Finance (patients' accounts, invoices, payments, expenses)
+        Route::prefix('finance')->controller(FinanceController::class)->group(function () {
+            Route::get('summary', 'summary');
+            Route::get('my-patients', 'myPatients');
+            Route::get('clients', 'clients');
+            Route::post('clients', 'storeClient');
+            Route::get('clients/{client}', 'showClient');
+            Route::put('clients/{client}', 'updateClient');
+            Route::delete('clients/{client}', 'destroyClient');
+            Route::get('invoices', 'invoices');
+            Route::post('invoices', 'storeInvoice');
+            Route::put('invoices/{invoice}', 'updateInvoice');
+            Route::delete('invoices/{invoice}', 'destroyInvoice');
+            Route::get('payments', 'payments');
+            Route::post('payments', 'storePayment');
+            Route::put('payments/{payment}', 'updatePayment');
+            Route::delete('payments/{payment}', 'destroyPayment');
+            Route::get('expenses', 'expenses');
+            Route::post('expenses', 'storeExpense');
+            Route::post('expenses/{expense}', 'updateExpense'); // POST: multipart receipt upload
+            Route::delete('expenses/{expense}', 'destroyExpense');
+        });
     });
 
     // ── Patient Routes ────────────────────────────────────────
@@ -175,6 +200,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('documents',           [PatientDocumentController::class, 'index']);
         Route::post('documents',          [PatientDocumentController::class, 'store']);
         Route::delete('documents/{document}', [PatientDocumentController::class, 'destroy']);
+
+        // Invoices & payments recorded by therapists (read-only)
+        Route::get('invoices', [PatientInvoiceController::class, 'index']);
     });
 
     // ── Call state (media via Agora) ──────────────────────────

@@ -23,6 +23,8 @@ import '../../features/reels/presentation/pages/reels_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/statistics/statistics_page.dart' show StatisticsPage;
+import '../../features/finance/finance_page.dart';
+import '../../features/finance/client_account_page.dart';
 import '../../features/articles/presentation/pages/articles_page.dart';
 import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -140,6 +142,11 @@ final appRouter = GoRouter(
         GoRoute(path: '/profile/edit',    builder: (_, __) => const EditProfilePage()),
         GoRoute(path: '/profile/documents', builder: (_, __) => const DocumentsPage()),
         GoRoute(path: '/statistics',      builder: (_, __) => const StatisticsPage()),
+        GoRoute(path: '/finance',         builder: (_, __) => const FinancePage()),
+        GoRoute(
+          path: '/finance/client/:id',
+          builder: (_, state) => ClientAccountPage(clientId: int.parse(state.pathParameters['id']!)),
+        ),
         GoRoute(path: '/articles',        builder: (_, __) => const ArticlesPage()),
         GoRoute(
           path: '/articles/create',

@@ -38,7 +38,7 @@ class AppointmentController extends Controller
     public function show(Appointment $appointment): JsonResponse
     {
         abort_if($appointment->therapist_id !== request()->user()->therapist->id, 403);
-        return response()->json($appointment->load(['patient.user', 'clinic', 'sessionNote']));
+        return response()->json($appointment->load(['patient.user', 'clinic', 'sessionNote', 'invoice']));
     }
 
     public function getNotes(Appointment $appointment): JsonResponse

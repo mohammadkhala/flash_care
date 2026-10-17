@@ -27,6 +27,7 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/programs/presentation/pages/programs_page.dart';
 import '../../features/programs/presentation/pages/program_detail_page.dart';
 import '../../features/documents/presentation/pages/documents_page.dart';
+import '../../features/invoices/presentation/pages/my_invoices_page.dart';
 import '../../features/goals/presentation/pages/goals_page.dart';
 import '../../features/map/presentation/pages/map_page.dart';
 import '../../features/profile/presentation/pages/static_page.dart';
@@ -169,6 +170,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/documents',
       builder: (_, __) => const DocumentsPage(),
+    ),
+    GoRoute(
+      path: '/invoices',
+      builder: (_, __) => const MyInvoicesPage(),
     ),
     GoRoute(
       path: '/terms',

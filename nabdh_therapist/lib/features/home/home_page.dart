@@ -189,6 +189,7 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
+      (icon: Icons.account_balance_wallet_outlined, label: 'المالية', route: '/finance', color: AppColors.success),
       (icon: Icons.groups_outlined,        label: 'الأخصائيون', route: '/colleagues',  color: AppColors.accent),
       (icon: Icons.article_outlined,       label: S.myArticles,    route: '/articles',   color: AppColors.primary),
       (icon: Icons.video_call_outlined,    label: S.myReels,       route: '/reels',      color: const Color(0xFF7C3AED)),
@@ -200,7 +201,7 @@ class _QuickActions extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: GestureDetector(
-            onTap: () => a.route.startsWith('/colleagues')
+            onTap: () => a.route == '/colleagues' || a.route == '/finance'
                 ? context.push(a.route)
                 : context.go(a.route),
             child: Container(
@@ -214,7 +215,9 @@ class _QuickActions extends StatelessWidget {
                 Icon(a.icon, color: a.color, size: 26),
                 const SizedBox(height: 6),
                 Text(a.label,
-                    style: TextStyle(fontSize: 11, color: a.color, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: a.color, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
               ]),
             ),
           ),
