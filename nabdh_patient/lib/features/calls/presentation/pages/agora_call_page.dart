@@ -54,6 +54,8 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
   String _status      = '';
   bool _joined        = false;
   int? _remoteUid;
+  /// The peer is in the call (Agora saw them, or the server says answered).
+  bool _live          = false;
   bool _muted         = false;
   late bool _speakerOn = widget.isVideo;
   bool _videoEnabled  = true;
@@ -68,8 +70,9 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
   Timer? _pollTimer;
   Timer? _durationTimer;
   Timer? _ringTimeout;
+  Timer? _answeredFallback;
 
-  bool get _connected => _remoteUid != null;
+  bool get _connected => _live;
 
   @override
   void initState() {
@@ -92,6 +95,7 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     _pollTimer?.cancel();
     _durationTimer?.cancel();
     _ringTimeout?.cancel();
+    _answeredFallback?.cancel();
     if (!_ended) {
       // Screen closed without "إنهاء" — still tell the other side.
       _ended = true;
@@ -142,34 +146,52 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
       final token  = await AgoraService.instance.fetchToken(_channel);
       final engine = await AgoraService.instance.getEngine();
       if (!mounted || _ended) return;
-      _engine = engine;
+      setState(() => _engine = engine);
 
       _handler = RtcEngineEventHandler(
         onJoinChannelSuccess: (_, __) {
-          if (!mounted) return;
+          if (!mounted || _ended) return;
           setState(() => _joined = true);
-          if (widget.isCaller && !_connected) {
+          if (_connected || _answeredFallback != null) {
+            // Peer already in / already answered.
+          } else if (widget.isCaller) {
             _setStatus('جارٍ الرنين...');
             _startRingback();
-          } else if (!_connected) {
+          } else {
             _setStatus('بانتظار الطرف الآخر...');
           }
           engine.setEnableSpeakerphone(_speakerOn);
         },
-        onUserJoined: (_, uid, __) {
-          if (!mounted) return;
-          _ringTimeout?.cancel();
-          _stopRingback();
-          setState(() => _remoteUid = uid);
-          _setStatus('متصل');
-          _startDurationTimer();
+        onUserJoined: (_, uid, __) => _onPeerSeen(uid),
+        onRemoteAudioStateChanged: (_, uid, state, __, ___) {
+          if (state == RemoteAudioState.remoteAudioStateStarting ||
+              state == RemoteAudioState.remoteAudioStateDecoding) {
+            _onPeerSeen(uid);
+          }
+        },
+        onRemoteVideoStateChanged: (_, uid, state, __, ___) {
+          if (state == RemoteVideoState.remoteVideoStateStarting ||
+              state == RemoteVideoState.remoteVideoStateDecoding) {
+            _onPeerSeen(uid);
+          }
         },
         onUserOffline: (_, uid, __) {
           if (uid == _remoteUid) _hangup(remote: true, reason: 'انتهت المكالمة');
         },
+        onConnectionStateChanged: (_, state, reason) {
+          if (_ended) return;
+          if (state == ConnectionStateType.connectionStateFailed) {
+            _fail(_joinFailureMessage(reason));
+          } else if (state == ConnectionStateType.connectionStateReconnecting) {
+            _setStatus('جارٍ إعادة الاتصال...');
+          } else if (state == ConnectionStateType.connectionStateConnected &&
+              _connected) {
+            _setStatus('متصل');
+          }
+        },
         onError: (err, msg) => debugPrint('Agora error $err: $msg'),
       );
-      engine.registerEventHandler(_handler!);
+      AgoraService.instance.listener = _handler;
 
       // The engine is shared between calls: undo mute / camera-off left over
       // from the previous call.
@@ -218,6 +240,7 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
       final status = (res.data as Map)['status'] as String?;
       if (status == 'ringing' || status == 'active') {
         _sawLive = true;
+        if (status == 'active') _onAnswered();
         return;
       }
       if (!_sawLive) return;
@@ -233,8 +256,49 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     } catch (_) {}
   }
 
+  // ── Peer presence ──────────────────────────────────────────
+  void _onPeerSeen(int uid) {
+    if (!mounted || _ended) return;
+    if (_remoteUid != uid) setState(() => _remoteUid = uid);
+    _markLive();
+  }
+
+  void _markLive() {
+    if (!mounted || _ended || _live) return;
+    _ringTimeout?.cancel();
+    _answeredFallback?.cancel();
+    _stopRingback();
+    setState(() => _live = true);
+    _setStatus('متصل');
+    _startDurationTimer();
+  }
+
+  /// Server says the callee pressed "رد": never time the call out as missed.
+  /// Agora normally reports the peer within a second or two.
+  void _onAnswered() {
+    if (!widget.isCaller || _live || _ended || _answeredFallback != null) return;
+    _ringTimeout?.cancel();
+    _stopRingback();
+    _setStatus('جارٍ التوصيل...');
+    _answeredFallback = Timer(const Duration(seconds: 5), _markLive);
+  }
+
+  String _joinFailureMessage(ConnectionChangedReasonType reason) {
+    switch (reason) {
+      case ConnectionChangedReasonType.connectionChangedInvalidToken:
+      case ConnectionChangedReasonType.connectionChangedTokenExpired:
+        return 'تعذّر الدخول إلى المكالمة: رمز الاتصال غير صالح';
+      case ConnectionChangedReasonType.connectionChangedInvalidAppId:
+      case ConnectionChangedReasonType.connectionChangedBannedByServer:
+      case ConnectionChangedReasonType.connectionChangedRejectedByServer:
+        return 'خدمة المكالمات غير متاحة حالياً، حاول لاحقاً';
+      default:
+        return 'تعذّر الاتصال بخدمة المكالمات، تحقق من الإنترنت';
+    }
+  }
+
   Future<void> _onNoAnswer() async {
-    if (_connected || _ended) return;
+    if (_connected || _ended || _answeredFallback != null) return;
     try {
       await ApiClient.instance
           .post('/calls/$_channel/status', data: {'status': 'missed'});
@@ -248,7 +312,9 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     if (engine == null || _ringback) return;
     try {
       final path = await engine.getAssetAbsolutePath(_ringbackAsset);
-      if (path == null || _connected || _ended) return;
+      if (path == null || _connected || _ended || _answeredFallback != null) {
+        return;
+      }
       await engine.startAudioMixing(filePath: path, loopback: true, cycle: -1);
       _ringback = true;
     } catch (_) {}
@@ -290,6 +356,7 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     _pollTimer?.cancel();
     _durationTimer?.cancel();
     _ringTimeout?.cancel();
+    _answeredFallback?.cancel();
     if (!remote) {
       try {
         await ApiClient.instance
@@ -298,7 +365,7 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
     }
     await _leaveMedia();
     if (reason != null && mounted) {
-      setState(() { _remoteUid = null; _status = reason; });
+      setState(() { _remoteUid = null; _live = false; _status = reason; });
       await Future.delayed(const Duration(milliseconds: 1500));
     }
     CallService.instance.activeChannel = null;
@@ -308,9 +375,9 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
   Future<void> _leaveMedia() async {
     final engine = _engine;
     if (engine == null) return;
+    if (_handler != null) AgoraService.instance.clearListener(_handler!);
     await _stopRingback();
     try {
-      if (_handler != null) engine.unregisterEventHandler(_handler!);
       if (widget.isVideo) await engine.stopPreview();
       await engine.leaveChannel();
     } catch (_) {}
@@ -351,7 +418,7 @@ class _AgoraCallPageState extends State<AgoraCallPage> {
         backgroundColor: Colors.black,
         body: Stack(children: [
           // ── Remote video (full screen) ──────────────────────
-          if (_connected && widget.isVideo && engine != null)
+          if (_remoteUid != null && widget.isVideo && engine != null)
             Positioned.fill(
               child: AgoraVideoView(
                 controller: VideoViewController.remote(
