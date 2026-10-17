@@ -18,6 +18,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _bio     = TextEditingController();
   final _city    = TextEditingController();
   final _exp     = TextEditingController();
+  // Letterhead (reports): English side + professional numbers
+  final _nameEn    = TextEditingController();
+  final _titleEn   = TextEditingController();
+  final _degree    = TextEditingController();
+  final _degreeEn  = TextEditingController();
+  final _license   = TextEditingController();
+  final _syndicate = TextEditingController();
   String _gender = 'male';
   File? _avatar;
   bool _loading = true, _saving = false;
@@ -27,7 +34,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() { super.initState(); _load(); }
   @override
-  void dispose() { _name.dispose(); _title.dispose(); _bio.dispose(); _city.dispose(); _exp.dispose(); super.dispose(); }
+  void dispose() {
+    for (final c in [_name, _title, _bio, _city, _exp, _nameEn, _titleEn, _degree, _degreeEn, _license, _syndicate]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {
@@ -39,6 +51,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _city.text  = t['city']     ?? '';
       _exp.text   = '${t['years_experience'] ?? 0}';
       _gender     = t['gender']   ?? 'male';
+      _nameEn.text    = t['full_name_en']     ?? '';
+      _titleEn.text   = t['title_en']         ?? '';
+      _degree.text    = t['degree']           ?? '';
+      _degreeEn.text  = t['degree_en']        ?? '';
+      _license.text   = t['license_number']   ?? '';
+      _syndicate.text = t['syndicate_number'] ?? '';
       setState(() => _loading = false);
     } catch (_) { setState(() => _loading = false); }
   }
@@ -65,6 +83,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'city':             _city.text.trim(),
         'years_experience': int.tryParse(_exp.text) ?? 0,
         'gender':           _gender,
+        'full_name_en':     _nameEn.text.trim(),
+        'title_en':         _titleEn.text.trim(),
+        'degree':           _degree.text.trim(),
+        'degree_en':        _degreeEn.text.trim(),
+        'license_number':   _license.text.trim(),
+        'syndicate_number': _syndicate.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحفظ ✓')));
@@ -152,10 +176,61 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _lbl('نبذة شخصية'),
         TextField(controller: _bio, maxLines: 4, maxLength: 500,
             decoration: const InputDecoration(hintText: 'اكتب نبذة عن نفسك...')),
+        const SizedBox(height: 24),
+
+        // ── Letterhead & reports ───────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withAlpha(12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.primary.withAlpha(40)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.assignment_ind_outlined, color: AppColors.primary, size: 20),
+              SizedBox(width: 8),
+              Text('بيانات الترويسة والتقارير',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primary)),
+            ]),
+            const SizedBox(height: 4),
+            const Text('تظهر في ترويسة تقارير التقييم: الإنجليزي على اليسار والعربي على اليمين.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 14),
+            _lbl('الاسم بالإنجليزي'),
+            _ltrField(_nameEn, 'Dr. Ahmad Mahmoud Al-Najjar'),
+            const SizedBox(height: 12),
+            _lbl('اللقب المهني بالإنجليزي'),
+            _ltrField(_titleEn, 'Physical Therapist'),
+            const SizedBox(height: 12),
+            _lbl('الدرجة العلمية'),
+            TextField(controller: _degree, decoration: const InputDecoration(hintText: 'بكالوريوس علاج طبيعي')),
+            const SizedBox(height: 12),
+            _lbl('الدرجة العلمية بالإنجليزي'),
+            _ltrField(_degreeEn, 'B.Sc. Physical Therapy'),
+            const SizedBox(height: 12),
+            _lbl('رقم إجازة مزاولة المهنة (وزارة الصحة)'),
+            _ltrField(_license, '12345'),
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('مطلوب لإصدار التقرير النهائي — يظهر في الترويسة وتحت التوقيع.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            ),
+            const SizedBox(height: 12),
+            _lbl('رقم عضوية النقابة (اختياري)'),
+            _ltrField(_syndicate, '678'),
+          ]),
+        ),
         const SizedBox(height: 40),
       ])),
     );
   }
+
+  Widget _ltrField(TextEditingController c, String hint) => TextField(
+        controller: c,
+        textDirection: TextDirection.ltr,
+        decoration: InputDecoration(hintText: hint, hintTextDirection: TextDirection.ltr),
+      );
 
   Widget _lbl(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 8),

@@ -23,10 +23,15 @@ class ProfileController extends Controller
 
     public function update(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'full_name' => 'sometimes|string|max:100',
             'full_name_en' => 'nullable|string|max:100',
             'title' => 'nullable|string|max:100',
+            'title_en' => 'nullable|string|max:100',
+            'degree' => 'nullable|string|max:150',
+            'degree_en' => 'nullable|string|max:150',
+            'license_number' => 'nullable|string|max:50',
+            'syndicate_number' => 'nullable|string|max:50',
             'bio' => 'nullable|string|max:2000',
             'bio_en' => 'nullable|string|max:2000',
             'years_experience' => 'sometimes|integer|min:0',
@@ -43,8 +48,9 @@ class ProfileController extends Controller
             'specialization_ids.*' => 'exists:specializations,id',
         ]);
 
+        // Only validated fields: is_approved, rating_*, is_featured… stay admin-only.
         $therapist = $request->user()->therapist;
-        $therapist->update($request->except('specialization_ids', 'avatar'));
+        $therapist->update(collect($validated)->except('specialization_ids')->all());
 
         if ($request->has('specialization_ids')) {
             $therapist->specializations()->sync($request->specialization_ids);

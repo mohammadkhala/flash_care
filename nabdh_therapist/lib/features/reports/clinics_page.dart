@@ -94,7 +94,7 @@ class _ClinicsPageState extends State<ClinicsPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'اسم العيادة وعنوانها وهاتفها وشعارها تظهر في ترويسة تقارير المرضى.',
+                        'ترويسة التقارير: الاسم بالإنجليزي على اليسار، الشعار في الوسط، الاسم بالعربي على اليمين، والعنوان والهاتف والبريد في سطر تحتها.',
                         style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ),
@@ -138,6 +138,9 @@ class _ClinicsPageState extends State<ClinicsPage> {
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            if ((c['name_en'] ?? '').toString().isNotEmpty)
+              Text('${c['name_en']}', textDirection: TextDirection.ltr,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             if ('${c['address'] ?? ''}${c['city'] ?? ''}'.trim().isNotEmpty)
               Text([c['address'], c['city']].where((v) => (v ?? '').toString().isNotEmpty).join('، '),
                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -177,16 +180,22 @@ class _ClinicFormState extends State<_ClinicForm> {
   late final _address = TextEditingController(text: widget.clinic?['address'] as String? ?? '');
   late final _city = TextEditingController(text: widget.clinic?['city'] as String? ?? '');
   late final _phone = TextEditingController(text: widget.clinic?['phone'] as String? ?? '');
+  late final _nameEn = TextEditingController(text: widget.clinic?['name_en'] as String? ?? '');
+  late final _addressEn = TextEditingController(text: widget.clinic?['address_en'] as String? ?? '');
+  late final _email = TextEditingController(text: widget.clinic?['email'] as String? ?? '');
+  late final _website = TextEditingController(text: widget.clinic?['website'] as String? ?? '');
+  late final _license = TextEditingController(text: widget.clinic?['license_number'] as String? ?? '');
   bool _saving = false;
 
   @override
   void dispose() {
-    _name.dispose();
-    _address.dispose();
-    _city.dispose();
-    _phone.dispose();
+    for (final c in [_name, _address, _city, _phone, _nameEn, _addressEn, _email, _website, _license]) {
+      c.dispose();
+    }
     super.dispose();
   }
+
+  String? _opt(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return;
@@ -195,7 +204,12 @@ class _ClinicFormState extends State<_ClinicForm> {
       'name': _name.text.trim(),
       'address': _address.text.trim(),
       'city': _city.text.trim(),
-      'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+      'phone': _opt(_phone),
+      'name_en': _opt(_nameEn),
+      'address_en': _opt(_addressEn),
+      'email': _opt(_email),
+      'website': _opt(_website),
+      'license_number': _opt(_license),
     };
     try {
       if (widget.clinic == null) {
@@ -234,10 +248,19 @@ class _ClinicFormState extends State<_ClinicForm> {
     }
   }
 
-  InputDecoration _dec(String l) => InputDecoration(
+  InputDecoration _dec(String l, {String? hint}) => InputDecoration(
         labelText: l,
+        hintText: hint,
+        hintTextDirection: TextDirection.ltr,
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      );
+
+  Widget _ltr(TextEditingController c, String label, String hint, {TextInputType? keyboard}) => TextField(
+        controller: c,
+        keyboardType: keyboard,
+        textDirection: TextDirection.ltr,
+        decoration: _dec(label, hint: hint),
       );
 
   @override
@@ -254,13 +277,23 @@ class _ClinicFormState extends State<_ClinicForm> {
                     onPressed: _saving ? null : _delete),
             ]),
             const SizedBox(height: 12),
-            TextField(controller: _name, decoration: _dec('اسم العيادة (يظهر في التقرير) *')),
+            TextField(controller: _name, decoration: _dec('اسم العيادة بالعربي (يمين الترويسة) *')),
             const SizedBox(height: 12),
-            TextField(controller: _address, decoration: _dec('العنوان')),
+            _ltr(_nameEn, 'اسم العيادة بالإنجليزي (يسار الترويسة)', 'Reloy Rehabilitation Center'),
+            const SizedBox(height: 12),
+            TextField(controller: _address, decoration: _dec('العنوان بالعربي')),
             const SizedBox(height: 12),
             TextField(controller: _city, decoration: _dec('المدينة')),
             const SizedBox(height: 12),
+            _ltr(_addressEn, 'العنوان بالإنجليزي', 'Al-Irsal St., Ramallah'),
+            const SizedBox(height: 12),
             TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: _dec('الهاتف')),
+            const SizedBox(height: 12),
+            _ltr(_email, 'البريد الإلكتروني (اختياري)', 'info@clinic.ps', keyboard: TextInputType.emailAddress),
+            const SizedBox(height: 12),
+            _ltr(_website, 'الموقع الإلكتروني (اختياري)', 'www.clinic.ps', keyboard: TextInputType.url),
+            const SizedBox(height: 12),
+            _ltr(_license, 'رقم ترخيص المركز من وزارة الصحة (اختياري)', 'C-2024-118'),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _saving ? null : _save,

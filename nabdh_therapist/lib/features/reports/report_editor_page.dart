@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +37,29 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
   DateTime _date = DateTime.now();
   final _notes = TextEditingController();
 
+  // Report header
+  String? _numberLabel;
+  String _reportType = 'initial';
+  String? _referralSource;
+  final _referralName = TextEditingController();
+  final _diagnosis = TextEditingController();
+  final _sessionsPerWeek = TextEditingController();
+  final _planWeeks = TextEditingController();
+  List<String> _letterheadMissing = [];
+  bool _warnedLetterhead = false;
+
+  static const _reportTypes = {
+    'initial': 'تقييم أولي',
+    'reassessment': 'إعادة تقييم',
+    'progress': 'تقرير تقدّم',
+    'discharge': 'تقرير خروج',
+  };
+  static const _referrals = {
+    'self': 'مراجعة ذاتية',
+    'physician': 'محوَّل من طبيب',
+    'other': 'أخرى',
+  };
+
   /// Text inputs keyed `itemId:right|left|value|text` and `note:sectionId`.
   final Map<String, TextEditingController> _ctrl = {};
   /// Grade / positive-negative choices keyed `itemId:right|left`.
@@ -55,10 +79,9 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
 
   @override
   void dispose() {
-    for (final c in _ctrl.values) {
+    for (final c in [..._ctrl.values, _notes, _referralName, _diagnosis, _sessionsPerWeek, _planWeeks]) {
       c.dispose();
     }
-    _notes.dispose();
     super.dispose();
   }
 
@@ -78,6 +101,7 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
         _date = DateTime.tryParse('${r['assessed_at']}') ?? DateTime.now();
         _notes.text = r['notes'] as String? ?? '';
         _sections = (r['sections'] as List).cast<Map>();
+        _applyHeader(r);
       } else {
         final t = widget.template!;
         _title = '${t['name_en']}';
@@ -91,6 +115,17 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
     } catch (e) {
       setState(() { _loading = false; _error = apiError(e); });
     }
+  }
+
+  void _applyHeader(Map r) {
+    _numberLabel = r['number_label'] as String?;
+    _reportType = r['report_type'] as String? ?? 'initial';
+    _referralSource = r['referral_source'] as String?;
+    _referralName.text = r['referral_name'] as String? ?? '';
+    _diagnosis.text = r['medical_diagnosis'] as String? ?? '';
+    _sessionsPerWeek.text = r['sessions_per_week'] == null ? '' : '${r['sessions_per_week']}';
+    _planWeeks.text = r['plan_weeks'] == null ? '' : '${r['plan_weeks']}';
+    _letterheadMissing = ((r['letterhead_missing'] as List?) ?? []).cast<String>();
   }
 
   String _num(dynamic v) {
@@ -170,6 +205,12 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
       'section_notes': {for (final s in _sections) '${s['id']}': _ctrl['note:${s['id']}']!.text.trim()},
       'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       'status': status ?? _status,
+      'report_type': _reportType,
+      'referral_source': _referralSource,
+      'referral_name': _referralSource == null || _referralName.text.trim().isEmpty ? null : _referralName.text.trim(),
+      'medical_diagnosis': _diagnosis.text.trim().isEmpty ? null : _diagnosis.text.trim(),
+      'sessions_per_week': int.tryParse(_sessionsPerWeek.text.trim()),
+      'plan_weeks': int.tryParse(_planWeeks.text.trim()),
     };
     try {
       final res = _id == null
@@ -184,12 +225,20 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
       setState(() {
         _id = r['id'] as int;
         _status = '${r['status']}';
+        _numberLabel = r['number_label'] as String?;
+        _letterheadMissing = ((r['letterhead_missing'] as List?) ?? []).cast<String>();
         _saving = false;
         _dirty = false;
       });
       return true;
     } catch (e) {
       setState(() => _saving = false);
+      final data = (e is DioException) ? e.response?.data : null;
+      final errors = data is Map ? data['errors'] : null;
+      if (mounted && errors is Map && errors.containsKey('license_number')) {
+        await _askToCompleteProfile('${(errors['license_number'] as List).first}');
+        return false;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(apiError(e)),
@@ -222,8 +271,47 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
       if (go != true) return;
     }
     if (await _save(status: 'final') && mounted) {
-      await openReportPdf(context, _id!, fileName: '$_clientCode $_title');
+      if (_letterheadMissing.isNotEmpty && !_warnedLetterhead) {
+        _warnedLetterhead = true;
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('بيانات الترويسة غير مكتملة'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('التقرير جاهز، لكن هذه البيانات لن تظهر في الترويسة:'),
+              const SizedBox(height: 8),
+              ..._letterheadMissing.map((m) => Text('• $m', style: const TextStyle(fontSize: 13))),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إكمال البيانات')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('عرض التقرير')),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (go != true) {
+          final toClinics = _letterheadMissing.every((m) => m.contains('عياداتي'));
+          await context.push(toClinics ? '/clinics' : '/profile/edit');
+          return;
+        }
+      }
+      await openReportPdf(context, _id!, fileName: '$_clientCode ${_numberLabel ?? ''} $_title');
     }
+  }
+
+  Future<void> _askToCompleteProfile(String message) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('رقم إجازة المزاولة مطلوب'),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لاحقاً')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('فتح الملف الشخصي')),
+        ],
+      ),
+    );
+    if (go == true && mounted) await context.push('/profile/edit');
   }
 
   Future<bool> _confirmLeave() async {
@@ -356,7 +444,49 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
             ),
           ]),
           const SizedBox(height: 10),
-          Text(_title, style: const TextStyle(fontWeight: FontWeight.w700, color: _blue)),
+          Row(children: [
+            Expanded(child: Text(_title, style: const TextStyle(fontWeight: FontWeight.w700, color: _blue))),
+            if (_numberLabel != null)
+              Text(_numberLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary)),
+          ]),
+          const SizedBox(height: 12),
+          const Text('نوع التقرير', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: _reportTypes.entries.map((e) => ChoiceChip(
+                label: Text(e.value, style: const TextStyle(fontSize: 12)),
+                selected: _reportType == e.key,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => setState(() { _reportType = e.key; _dirty = true; }),
+              )).toList()),
+          const SizedBox(height: 12),
+          const Text('جهة الإحالة', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: _referrals.entries.map((e) => ChoiceChip(
+                label: Text(e.value, style: const TextStyle(fontSize: 12)),
+                selected: _referralSource == e.key,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => setState(() {
+                  _referralSource = _referralSource == e.key ? null : e.key;
+                  _dirty = true;
+                }),
+              )).toList()),
+          if (_referralSource == 'physician' || _referralSource == 'other') ...[
+            const SizedBox(height: 8),
+            _headerField(_referralName, _referralSource == 'physician'
+                ? 'اسم الطبيب المحيل وتخصصه' : 'جهة الإحالة',
+                hint: _referralSource == 'physician' ? 'Dr. Samer Odeh (Orthopedics)' : null),
+          ],
+          const SizedBox(height: 12),
+          _headerField(_diagnosis, 'التشخيص الطبي (اختياري)', hint: 'Right shoulder impingement syndrome'),
+          const SizedBox(height: 12),
+          const Text('خطة العلاج', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(child: _headerField(_sessionsPerWeek, 'جلسات أسبوعياً', number: true)),
+            const SizedBox(width: 10),
+            Expanded(child: _headerField(_planWeeks, 'لمدة (أسابيع)', number: true)),
+          ]),
           const SizedBox(height: 12),
           const Text('المؤسسة / العيادة', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 6),
@@ -395,6 +525,21 @@ class _ReportEditorPageState extends State<ReportEditorPage> {
               ]),
             ),
         ]),
+      );
+
+  Widget _headerField(TextEditingController c, String label, {String? hint, bool number = false}) => TextField(
+        controller: c,
+        keyboardType: number ? TextInputType.number : null,
+        inputFormatters: number ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)] : null,
+        onChanged: (_) => _markDirty(),
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          hintTextDirection: TextDirection.ltr,
+          isDense: true,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
 
   Widget _sectionCard(int n, Map s) {

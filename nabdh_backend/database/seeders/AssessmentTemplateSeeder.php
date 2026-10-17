@@ -147,10 +147,12 @@ class AssessmentTemplateSeeder extends Seeder
             ]);
 
             $add('plan', 'Assessment & Plan', 'التقييم والخطة', 'text', [
-                ['Clinical Impression', 'الانطباع السريري'],
+                ['Physiotherapy Diagnosis', 'تشخيص العلاج الطبيعي'],
                 ['Short-term Goals', 'أهداف قصيرة المدى'],
                 ['Long-term Goals', 'أهداف طويلة المدى'],
                 ['Treatment Plan', 'الخطة العلاجية'],
+                ['Prognosis', 'التوقعات'],
+                ['Recommendations / Home Program', 'التوصيات والتمارين المنزلية'],
             ]);
 
             $templates = [

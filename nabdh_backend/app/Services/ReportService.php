@@ -165,7 +165,16 @@ class ReportService
         $sections = $r->data['sections'] ?? [];
         return [
             'id'             => $r->id,
+            'number'         => $r->number,
+            'number_label'   => $r->number_label,
             'title'          => $r->title,
+            'report_type'    => $r->report_type,
+            'referral_source'=> $r->referral_source,
+            'referral_name'  => $r->referral_name,
+            'medical_diagnosis' => $r->medical_diagnosis,
+            'sessions_per_week' => $r->sessions_per_week,
+            'plan_weeks'     => $r->plan_weeks,
+            'finalized_at'   => $r->finalized_at?->toIso8601String(),
             'status'         => $r->status,
             'assessed_at'    => $r->assessed_at?->toDateString(),
             'client_id'      => $r->client_id,
@@ -177,6 +186,21 @@ class ReportService
             'appointment_id' => $r->appointment_id,
             'notes'          => $r->notes,
             'updated_at'     => $r->updated_at?->toIso8601String(),
-        ] + $this->stats($sections) + ($withData ? ['sections' => $sections] : []);
+        ] + $this->stats($sections) + ($withData
+            ? ['sections' => $sections, 'letterhead_missing' => $this->letterheadMissing($r)]
+            : []);
+    }
+
+    /** English-side / license data still empty — shown to the doctor as a reminder. */
+    public function letterheadMissing(PatientReport $r): array
+    {
+        $t = $r->therapist;
+        $missing = [];
+        if (blank($t?->license_number)) $missing[] = 'رقم إجازة مزاولة المهنة (الملف الشخصي)';
+        if (blank($t?->full_name_en))   $missing[] = 'الاسم بالإنجليزي (الملف الشخصي)';
+        if (blank($t?->title_en))       $missing[] = 'اللقب بالإنجليزي (الملف الشخصي)';
+        if ($r->clinic && blank($r->clinic->name_en)) $missing[] = 'اسم العيادة بالإنجليزي (عياداتي)';
+        if ($r->clinic && blank($r->clinic->logo_path)) $missing[] = 'شعار العيادة (عياداتي)';
+        return $missing;
     }
 }

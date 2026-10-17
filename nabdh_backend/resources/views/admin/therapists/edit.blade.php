@@ -148,6 +148,33 @@
                                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
                     </div>
                     <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">اللقب (إنجليزي — للترويسة)</label>
+                        <input type="text" name="title_en" dir="ltr"
+                               value="{{ old('title_en', $therapist->title_en) }}"
+                               placeholder="Physical Therapist"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">الدرجة العلمية (إنجليزي — للترويسة)</label>
+                        <input type="text" name="degree_en" dir="ltr"
+                               value="{{ old('degree_en', $therapist->degree_en) }}"
+                               placeholder="B.Sc. Physical Therapy"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">رقم إجازة مزاولة المهنة (وزارة الصحة)</label>
+                        <input type="text" name="license_number" dir="ltr"
+                               value="{{ old('license_number', $therapist->license_number) }}"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                        <p class="text-[11px] text-gray-400 mt-1">قارنه بصورة الإجازة في مستندات الأخصائي. مطلوب لإصدار التقارير النهائية.</p>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-semibold block mb-1">رقم عضوية النقابة</label>
+                        <input type="text" name="syndicate_number" dir="ltr"
+                               value="{{ old('syndicate_number', $therapist->syndicate_number) }}"
+                               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B]">
+                    </div>
+                    <div>
                         <label class="text-xs text-gray-500 font-semibold block mb-1">الجنس</label>
                         <select name="gender" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1B5E7B] bg-white">
                             <option value="">— اختر —</option>

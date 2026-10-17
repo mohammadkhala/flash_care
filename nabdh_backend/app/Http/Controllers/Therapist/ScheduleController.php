@@ -157,21 +157,35 @@ class ScheduleController extends Controller
     /**
      * POST /therapist/clinics
      */
+    private const CLINIC_FIELDS = [
+        'name', 'name_en', 'address_en', 'latitude', 'longitude', 'phone', 'email', 'website', 'license_number',
+    ];
+
+    private function clinicRules(bool $creating): array
+    {
+        return [
+            'name'           => ($creating ? 'required' : 'sometimes') . '|string|max:255',
+            'name_en'        => 'nullable|string|max:255',
+            'address'        => 'nullable|string|max:500',
+            'address_en'     => 'nullable|string|max:500',
+            'city'           => 'nullable|string|max:100',
+            'latitude'       => 'nullable|numeric',
+            'longitude'      => 'nullable|numeric',
+            'phone'          => 'nullable|string|max:20',
+            'email'          => 'nullable|email|max:150',
+            'website'        => 'nullable|string|max:150',
+            'license_number' => 'nullable|string|max:50',
+        ];
+    }
+
     public function clinicsStore(Request $request): JsonResponse
     {
-        $request->validate([
-            'name'      => 'required|string|max:255',
-            'address'   => 'nullable|string|max:500',
-            'city'      => 'nullable|string|max:100',
-            'latitude'  => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'phone'     => 'nullable|string|max:20',
-        ]);
+        $request->validate($this->clinicRules(true));
 
         // address / city are NOT NULL columns
         $clinic = Clinic::create([
             'therapist_id' => $request->user()->therapist->id,
-            ...$request->only('name', 'latitude', 'longitude', 'phone'),
+            ...$request->only(self::CLINIC_FIELDS),
             'address' => $request->input('address') ?? '',
             'city'    => $request->input('city') ?? $request->user()->therapist->city ?? '',
         ]);
@@ -186,16 +200,9 @@ class ScheduleController extends Controller
     {
         abort_if($clinic->therapist_id !== $request->user()->therapist->id, 403);
 
-        $request->validate([
-            'name'      => 'sometimes|string|max:255',
-            'address'   => 'nullable|string|max:500',
-            'city'      => 'nullable|string|max:100',
-            'latitude'  => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'phone'     => 'nullable|string|max:20',
-        ]);
+        $request->validate($this->clinicRules(false));
 
-        $data = $request->only('name', 'latitude', 'longitude', 'phone');
+        $data = $request->only(self::CLINIC_FIELDS);
         foreach (['address', 'city'] as $col) {
             if ($request->exists($col)) $data[$col] = $request->input($col) ?? '';
         }

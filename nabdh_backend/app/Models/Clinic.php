@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Clinic extends Model
 {
     protected $fillable = [
-        'therapist_id', 'name', 'address', 'city',
-        'latitude', 'longitude', 'phone', 'logo_path', 'is_active',
+        'therapist_id', 'name', 'name_en', 'address', 'address_en', 'city',
+        'latitude', 'longitude', 'phone', 'email', 'website', 'license_number', 'logo_path', 'is_active',
     ];
 
     protected $appends = ['logo_url'];

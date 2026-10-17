@@ -12,6 +12,7 @@ class Therapist extends Model
     protected $fillable = [
         'user_id', 'full_name', 'full_name_en', 'avatar', 'bio', 'bio_en',
         'years_experience', 'title', 'gender', 'latitude', 'longitude', 'city', 'degree',
+        'title_en', 'degree_en', 'license_number', 'syndicate_number',
         'is_approved', 'is_verified', 'approved_at', 'accepts_online',
         'accepts_in_person', 'online_session_price', 'in_person_session_price',
         'session_duration', 'rating_average', 'rating_count', 'total_patients',

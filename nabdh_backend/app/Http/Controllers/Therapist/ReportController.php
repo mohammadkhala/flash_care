@@ -83,6 +83,12 @@ class ReportController extends Controller
             'clinic_id'      => ['nullable', Rule::exists('clinics', 'id')->where('therapist_id', $tid)],
             'appointment_id' => ['nullable', Rule::exists('appointments', 'id')->where('therapist_id', $tid)],
             'title'          => ['nullable', 'string', 'max:255'],
+            'report_type'    => ['nullable', Rule::in(array_keys(PatientReport::TYPES))],
+            'referral_source'=> ['nullable', Rule::in(array_keys(PatientReport::REFERRALS))],
+            'referral_name'  => ['nullable', 'string', 'max:255'],
+            'medical_diagnosis' => ['nullable', 'string', 'max:500'],
+            'sessions_per_week' => ['nullable', 'integer', 'min:1', 'max:14'],
+            'plan_weeks'     => ['nullable', 'integer', 'min:1', 'max:104'],
             'assessed_at'    => [$creating ? 'required' : 'sometimes', 'date'],
             'values'         => ['nullable', 'array'],
             'section_notes'  => ['nullable', 'array'],
@@ -91,9 +97,25 @@ class ReportController extends Controller
         ];
     }
 
+    private const HEADER_FIELDS = [
+        'report_type', 'referral_source', 'referral_name', 'medical_diagnosis', 'sessions_per_week', 'plan_weeks',
+    ];
+
+    /** A final report is an official document: the practice license number must be on it. */
+    private function ensureCanFinalize(Request $request): void
+    {
+        if ($request->input('status') !== 'final') return;
+        if (blank($request->user()->therapist->license_number)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'license_number' => 'أضف رقم إجازة مزاولة المهنة في ملفك الشخصي أولاً (يظهر في الترويسة وتحت التوقيع). يمكنك حفظ مسودة الآن.',
+            ]);
+        }
+    }
+
     public function store(Request $request): JsonResponse
     {
         $request->validate($this->rules($request, true));
+        $this->ensureCanFinalize($request);
 
         $template = AssessmentTemplate::findOrFail($request->template_id);
         $sections = $this->reports->applyValues(
@@ -101,9 +123,12 @@ class ReportController extends Controller
             $request->input('values', []),
             $request->input('section_notes', []),
         );
+        $tid = $this->therapistId($request);
+        $status = $request->input('status', 'draft');
 
-        $report = PatientReport::create([
-            'therapist_id'   => $this->therapistId($request),
+        $report = \Illuminate\Support\Facades\DB::transaction(fn () => PatientReport::create([
+            'therapist_id'   => $tid,
+            'number'         => (int) PatientReport::withTrashed()->where('therapist_id', $tid)->lockForUpdate()->max('number') + 1,
             'client_id'      => $request->client_id,
             'clinic_id'      => $request->clinic_id,
             'template_id'    => $template->id,
@@ -112,8 +137,11 @@ class ReportController extends Controller
             'assessed_at'    => $request->assessed_at,
             'data'           => ['sections' => $sections],
             'notes'          => $request->notes,
-            'status'         => $request->input('status', 'draft'),
-        ]);
+            'status'         => $status,
+            'finalized_at'   => $status === 'final' ? now() : null,
+            ...$request->only(self::HEADER_FIELDS),
+            'report_type'    => $request->input('report_type') ?? 'initial',
+        ]));
 
         return response()->json($this->reports->format($report->load(['client', 'clinic'])), 201);
     }
@@ -122,8 +150,11 @@ class ReportController extends Controller
     {
         $this->own($request, $report);
         $request->validate($this->rules($request, false));
+        $this->ensureCanFinalize($request);
 
-        $fields = $request->only(['clinic_id', 'appointment_id', 'title', 'assessed_at', 'notes', 'status']);
+        $fields = $request->only(['clinic_id', 'appointment_id', 'title', 'assessed_at', 'notes', 'status', ...self::HEADER_FIELDS]);
+        if (array_key_exists('report_type', $fields) && blank($fields['report_type'])) unset($fields['report_type']);
+        if (($fields['status'] ?? null) === 'final' && !$report->finalized_at) $fields['finalized_at'] = now();
         if ($request->has('values') || $request->has('section_notes')) {
             $fields['data'] = ['sections' => $this->reports->applyValues(
                 $report->data['sections'] ?? [],
@@ -149,7 +180,7 @@ class ReportController extends Controller
     {
         $this->own($request, $report);
 
-        $name = Str::slug(($report->client?->code_label ?? 'report') . ' ' . $report->title . ' ' . $report->assessed_at?->toDateString()) . '.pdf';
+        $name = Str::slug(($report->client?->code_label ?? 'report') . ' ' . ($report->number_label ?? '') . ' ' . $report->title) . '.pdf';
 
         return response($pdf->render($report), 200, [
             'Content-Type'        => 'application/pdf',
