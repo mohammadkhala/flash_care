@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\AppSettingController;
+use App\Http\Controllers\Admin\AssessmentController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\MapController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -79,5 +80,21 @@ Route::prefix('admin')->group(function () {
 
         // ── Map ────────────────────────────────────────────────────────────
         Route::get('map', [MapController::class, 'index'])->name('map.index');
+
+        // ── Assessment templates (patient reports) ─────────────────────────
+        Route::prefix('assessments')->name('assessments.')->controller(AssessmentController::class)->group(function () {
+            Route::get   ('/',                         'index')          ->name('index');
+            Route::post  ('sections',                  'storeSection')   ->name('sections.store');
+            Route::get   ('sections/{section}',        'editSection')    ->name('sections.edit');
+            Route::put   ('sections/{section}',        'updateSection')  ->name('sections.update');
+            Route::delete('sections/{section}',        'destroySection') ->name('sections.destroy');
+            Route::post  ('sections/{section}/items',  'storeItem')      ->name('items.store');
+            Route::put   ('items/{item}',              'updateItem')     ->name('items.update');
+            Route::delete('items/{item}',              'destroyItem')    ->name('items.destroy');
+            Route::post  ('templates',                 'storeTemplate')  ->name('templates.store');
+            Route::get   ('templates/{template}',      'editTemplate')   ->name('templates.edit');
+            Route::put   ('templates/{template}',      'updateTemplate') ->name('templates.update');
+            Route::delete('templates/{template}',      'destroyTemplate')->name('templates.destroy');
+        });
     });
 });

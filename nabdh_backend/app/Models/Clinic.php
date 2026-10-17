@@ -10,8 +10,15 @@ class Clinic extends Model
 {
     protected $fillable = [
         'therapist_id', 'name', 'address', 'city',
-        'latitude', 'longitude', 'phone', 'is_active',
+        'latitude', 'longitude', 'phone', 'logo_path', 'is_active',
     ];
+
+    protected $appends = ['logo_url'];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->logo_path) : null;
+    }
 
     protected $casts = [
         'is_active' => 'boolean',

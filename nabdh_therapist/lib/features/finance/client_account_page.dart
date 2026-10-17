@@ -100,6 +100,17 @@ class _ClientAccountPageState extends State<ClientAccountPage> {
                           label: const Text('فاتورة جديدة'),
                         )),
                       ]),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/reports',
+                            extra: {'clientId': c['id'], 'clientName': c['name']}),
+                        icon: const Icon(Icons.assignment_outlined),
+                        label: const Text('تقارير التقييم (ملف المريض)'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1565C0),
+                          minimumSize: const Size(double.infinity, 46),
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       _section('الفواتير', _invoices.length),
                       if (_invoices.isEmpty) _none('لا توجد فواتير'),

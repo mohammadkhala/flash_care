@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/json_utils.dart';
 import '../../../finance/finance_forms.dart';
 import '../../../finance/finance_utils.dart';
+import '../../../reports/reports_page.dart' show startNewReport;
 
 class AppointmentDetailPage extends StatefulWidget {
   final int id;
@@ -155,6 +156,23 @@ class _State extends State<AppointmentDetailPage> {
     }
   }
 
+  Future<void> _newReport(Map? patient) async {
+    final patientId = jsonInt(patient?['id']);
+    if (patientId == 0) return;
+    setState(() => _billing = true);
+    try {
+      final res = await ApiClient.instance.post('/therapist/finance/clients', data: {'patient_id': patientId});
+      if (!mounted) return;
+      setState(() => _billing = false);
+      await startNewReport(context, client: res.data as Map, appointmentId: widget.id);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _billing = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiError(e))));
+      }
+    }
+  }
+
   Future<void> _startSession() async {
     final patientName = (_apt?['patient'] as Map?)?['full_name'] as String? ?? 'المريض';
     if (!mounted) return;
@@ -237,6 +255,18 @@ class _State extends State<AppointmentDetailPage> {
 
         if (status == 'confirmed' || status == 'completed') ...[
           _invoiceButton(patient, type),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _billing ? null : () => _newReport(patient),
+            icon: const Icon(Icons.assignment_outlined),
+            label: const Text('تقرير تقييم للجلسة'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1565C0),
+              side: const BorderSide(color: Color(0xFF1565C0)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
           const SizedBox(height: 12),
         ],
 

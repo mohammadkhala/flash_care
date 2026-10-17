@@ -9,6 +9,7 @@ use App\Models\TherapistUnavailability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ScheduleController extends Controller
 {
@@ -161,14 +162,18 @@ class ScheduleController extends Controller
         $request->validate([
             'name'      => 'required|string|max:255',
             'address'   => 'nullable|string|max:500',
+            'city'      => 'nullable|string|max:100',
             'latitude'  => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'phone'     => 'nullable|string|max:20',
         ]);
 
+        // address / city are NOT NULL columns
         $clinic = Clinic::create([
             'therapist_id' => $request->user()->therapist->id,
-            ...$request->only('name', 'address', 'latitude', 'longitude', 'phone'),
+            ...$request->only('name', 'latitude', 'longitude', 'phone'),
+            'address' => $request->input('address') ?? '',
+            'city'    => $request->input('city') ?? $request->user()->therapist->city ?? '',
         ]);
 
         return response()->json(['clinic' => $clinic], 201);
@@ -184,12 +189,17 @@ class ScheduleController extends Controller
         $request->validate([
             'name'      => 'sometimes|string|max:255',
             'address'   => 'nullable|string|max:500',
+            'city'      => 'nullable|string|max:100',
             'latitude'  => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'phone'     => 'nullable|string|max:20',
         ]);
 
-        $clinic->update($request->only('name', 'address', 'latitude', 'longitude', 'phone'));
+        $data = $request->only('name', 'latitude', 'longitude', 'phone');
+        foreach (['address', 'city'] as $col) {
+            if ($request->exists($col)) $data[$col] = $request->input($col) ?? '';
+        }
+        $clinic->update($data);
 
         return response()->json(['clinic' => $clinic]);
     }
@@ -202,5 +212,30 @@ class ScheduleController extends Controller
         abort_if($clinic->therapist_id !== $request->user()->therapist->id, 403);
         $clinic->delete();
         return response()->json(['message' => 'تم حذف العيادة']);
+    }
+
+    /**
+     * POST /therapist/clinics/{clinic}/logo — letterhead logo for reports.
+     */
+    public function clinicsLogo(Request $request, Clinic $clinic): JsonResponse
+    {
+        abort_if($clinic->therapist_id !== $request->user()->therapist->id, 403);
+        $request->validate(['logo' => 'required|image|mimes:png,jpg,jpeg|max:2048']);
+
+        if ($clinic->logo_path) Storage::disk('public')->delete($clinic->logo_path);
+        $clinic->update(['logo_path' => $request->file('logo')->store("clinic_logos/{$clinic->therapist_id}", 'public')]);
+
+        return response()->json(['clinic' => $clinic->fresh()]);
+    }
+
+    /**
+     * DELETE /therapist/clinics/{clinic}/logo
+     */
+    public function clinicsLogoDestroy(Request $request, Clinic $clinic): JsonResponse
+    {
+        abort_if($clinic->therapist_id !== $request->user()->therapist->id, 403);
+        if ($clinic->logo_path) Storage::disk('public')->delete($clinic->logo_path);
+        $clinic->update(['logo_path' => null]);
+        return response()->json(['clinic' => $clinic->fresh()]);
     }
 }

@@ -80,6 +80,7 @@
                     ['route' => 'admin.appointments.index',   'icon' => '📅', 'label' => 'المواعيد'],
                     ['route' => 'admin.reels.index',          'icon' => '🎬', 'label' => 'الريلز'],
                     ['route' => 'admin.specializations.index','icon' => '🏷️', 'label' => 'التخصصات'],
+                    ['route' => 'admin.assessments.index',    'icon' => '📋', 'label' => 'قوالب التقييم'],
                     ['route' => 'admin.map.index',            'icon' => '🗺️', 'label' => 'الخريطة'],
                     ['route' => 'admin.pages.index',          'icon' => '📄', 'label' => 'الصفحات'],
                     ['route' => 'admin.settings.index',       'icon' => '⚙️', 'label' => 'الإعدادات'],
@@ -89,7 +90,7 @@
             @foreach($navItems as $item)
                 <a href="{{ route($item['route']) }}"
                    class="sidebar-item flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all cursor-pointer
-                          {{ request()->routeIs($item['route']) ? 'active font-semibold' : 'text-white/75 hover:text-white' }}">
+                          {{ request()->routeIs($item['route']) || (str_ends_with($item['route'], '.index') && request()->routeIs(\Illuminate\Support\Str::beforeLast($item['route'], '.') . '.*')) ? 'active font-semibold' : 'text-white/75 hover:text-white' }}">
                     <span class="text-xl leading-none flex-shrink-0">{{ $item['icon'] }}</span>
                     <span x-show="sidebarOpen" x-transition>{{ $item['label'] }}</span>
                 </a>

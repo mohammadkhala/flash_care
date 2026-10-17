@@ -12,6 +12,7 @@ use App\Http\Controllers\Therapist\FinanceController;
 use App\Http\Controllers\Therapist\HomeProgramController;
 use App\Http\Controllers\Therapist\ProfileController;
 use App\Http\Controllers\Therapist\ReelController;
+use App\Http\Controllers\Therapist\ReportController;
 use App\Http\Controllers\Therapist\DocumentController as TherapistDocumentController;
 use App\Http\Controllers\Therapist\ScheduleController;
 use App\Http\Controllers\Patient\AppointmentController as PatientAppointmentController;
@@ -82,6 +83,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('clinics', [ScheduleController::class, 'clinicsStore']);
         Route::put('clinics/{clinic}', [ScheduleController::class, 'clinicsUpdate']);
         Route::delete('clinics/{clinic}', [ScheduleController::class, 'clinicsDestroy']);
+        Route::post('clinics/{clinic}/logo', [ScheduleController::class, 'clinicsLogo']);
+        Route::delete('clinics/{clinic}/logo', [ScheduleController::class, 'clinicsLogoDestroy']);
         Route::get('schedules', [ScheduleController::class, 'index']);
         Route::put('schedules', [ScheduleController::class, 'update']);
         Route::post('unavailability', [ScheduleController::class, 'addUnavailability']);
@@ -142,6 +145,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'update']);
         Route::post('goals/{goal}/progress', [\App\Http\Controllers\Therapist\GoalController::class, 'updateProgress']);
         Route::delete('goals/{goal}', [\App\Http\Controllers\Therapist\GoalController::class, 'destroy']);
+
+        // Assessment reports (patient file) — templates are managed in the admin panel
+        Route::get('report-templates', [ReportController::class, 'templates']);
+        Route::get('reports', [ReportController::class, 'index']);
+        Route::post('reports', [ReportController::class, 'store']);
+        Route::get('reports/{report}', [ReportController::class, 'show']);
+        Route::put('reports/{report}', [ReportController::class, 'update']);
+        Route::delete('reports/{report}', [ReportController::class, 'destroy']);
+        Route::get('reports/{report}/pdf', [ReportController::class, 'pdf']);
 
         // Finance (patients' accounts, invoices, payments, expenses)
         Route::prefix('finance')->controller(FinanceController::class)->group(function () {

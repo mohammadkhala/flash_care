@@ -25,6 +25,9 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/statistics/statistics_page.dart' show StatisticsPage;
 import '../../features/finance/finance_page.dart';
 import '../../features/finance/client_account_page.dart';
+import '../../features/reports/reports_page.dart';
+import '../../features/reports/report_editor_page.dart';
+import '../../features/reports/clinics_page.dart';
 import '../../features/articles/presentation/pages/articles_page.dart';
 import '../../features/articles/presentation/pages/create_article_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -143,6 +146,29 @@ final appRouter = GoRouter(
         GoRoute(path: '/profile/documents', builder: (_, __) => const DocumentsPage()),
         GoRoute(path: '/statistics',      builder: (_, __) => const StatisticsPage()),
         GoRoute(path: '/finance',         builder: (_, __) => const FinancePage()),
+        GoRoute(
+          path: '/reports',
+          builder: (_, state) {
+            final extra = state.extra as Map? ?? {};
+            return ReportsPage(
+              clientId:   extra['clientId'] as int?,
+              clientName: extra['clientName'] as String?,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/reports/edit',
+          builder: (_, state) {
+            final extra = state.extra as Map? ?? {};
+            return ReportEditorPage(
+              reportId:      extra['reportId'] as int?,
+              client:        extra['client'] as Map?,
+              template:      extra['template'] as Map?,
+              appointmentId: extra['appointmentId'] as int?,
+            );
+          },
+        ),
+        GoRoute(path: '/clinics',         builder: (_, __) => const ClinicsPage()),
         GoRoute(
           path: '/finance/client/:id',
           builder: (_, state) => ClientAccountPage(clientId: int.parse(state.pathParameters['id']!)),

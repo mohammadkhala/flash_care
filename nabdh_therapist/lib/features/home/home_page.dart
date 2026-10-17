@@ -189,40 +189,46 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
+      (icon: Icons.assignment_outlined,    label: 'التقارير',   route: '/reports',     color: const Color(0xFF1565C0)),
       (icon: Icons.account_balance_wallet_outlined, label: 'المالية', route: '/finance', color: AppColors.success),
       (icon: Icons.groups_outlined,        label: 'الأخصائيون', route: '/colleagues',  color: AppColors.accent),
       (icon: Icons.article_outlined,       label: S.myArticles,    route: '/articles',   color: AppColors.primary),
       (icon: Icons.video_call_outlined,    label: S.myReels,       route: '/reels',      color: const Color(0xFF7C3AED)),
       (icon: Icons.fitness_center_outlined,label: S.myPrograms,    route: '/programs',   color: const Color(0xFFEF6C00)),
     ];
+    const pushed = {'/colleagues', '/finance', '/reports'};
 
-    return Row(
-      children: actions.map((a) => Expanded(
-        child: Padding(
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      childAspectRatio: 1.45,
+      padding: EdgeInsets.zero,
+      children: actions.map((a) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: GestureDetector(
-            onTap: () => a.route == '/colleagues' || a.route == '/finance'
+            onTap: () => pushed.contains(a.route)
                 ? context.push(a.route)
                 : context.go(a.route),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: a.color.withAlpha(25),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: a.color.withAlpha(50)),
               ),
-              child: Column(children: [
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(a.icon, color: a.color, size: 26),
                 const SizedBox(height: 6),
                 Text(a.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, color: a.color, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
+                    style: TextStyle(fontSize: 11, color: a.color, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
               ]),
             ),
           ),
-        ),
-      )).toList(),
+        )).toList(),
     );
   }
 }
