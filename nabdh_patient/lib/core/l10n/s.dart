@@ -155,7 +155,7 @@ class S {
   static String get bookAppointment    => _t('احجز موعد',           'הזמן פגישה',           'Book Appointment');
   static String get myProgramsShort    => _t('برامجي',              'התוכניות שלי',         'My Programs');
   static String get assessments        => _t('التقييمات',           'הערכות',               'Assessments');
-  static String get reelsPhysio        => _t('ريلز العلاج الطبيعي', 'ריילז פיזיותרפיה',     'Physio Reels');
+  static String get reelsPhysio        => _t('ريلز', 'ריילז',     'Reels');
   static String get goodMorning        => _t('صباح الخير',          'בוקר טוב',             'Good Morning');
   static String get goodAfternoon      => _t('مساء الخير',          'צהריים טובים',         'Good Afternoon');
   static String get goodEvening        => _t('مساء النور',          'ערב טוב',              'Good Evening');
